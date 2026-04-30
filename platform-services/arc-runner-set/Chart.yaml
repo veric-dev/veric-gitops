@@ -1,0 +1,10 @@
+apiVersion: v2
+name: arc-runner-set
+description: GitHub ARC runner scale-set "ci-runner". Ephemeral pods, scale-to-zero, long-poll auth via foundation Secrets Manager → ESO → k8s secret.
+type: application
+version: 0.1.0
+appVersion: "0.11.0"
+dependencies:
+  - name: gha-runner-scale-set
+    version: "0.11.0"
+    repository: oci://ghcr.io/actions/actions-runner-controller-charts

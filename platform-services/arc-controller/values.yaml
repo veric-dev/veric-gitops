@@ -1,0 +1,24 @@
+gha-runner-scale-set-controller:
+  # Single replica is fine — controller reconciles state from GitHub and
+  # k8s, restarts pick up where they left off. HA adds no value at our
+  # scale.
+  replicaCount: 1
+
+  serviceAccount:
+    create: true
+    name: arc-controller
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  # Watch all namespaces so a future arc-runners-prod / arc-runners-fast
+  # don't need a second controller.
+  flags:
+    watchSingleNamespace: ""
+    logLevel: info
+    logFormat: json

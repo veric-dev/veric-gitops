@@ -37,6 +37,12 @@ spec:
             syncWave: "-1"
           - service: buildkit
             syncWave: "0"
+          # ARC: controller installs CRDs that the runner-set's
+          # AutoScalingRunnerSet CR depends on — sync waves enforce order.
+          - service: arc-controller
+            syncWave: "0"
+          - service: arc-runner-set
+            syncWave: "1"
   template:
     metadata:
       name: '{{.service}}'

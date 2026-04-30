@@ -1,0 +1,40 @@
+gha-runner-scale-set:
+  # The label jobs reference: `runs-on: [self-hosted, ci-runner]`.
+  runnerScaleSetName: ci-runner
+
+  # Skip the runtime discovery dance — we know the controller's SA from
+  # arc-controller/values.yaml.
+  controllerServiceAccount:
+    name: arc-controller
+    namespace: arc-controller
+
+  # Org-level scope so any veric-dev repo can dispatch jobs here.
+  githubConfigUrl: "https://github.com/veric-dev"
+
+  # Pre-created secret (synced from foundation SM by the
+  # ExternalSecret in templates/external-secret.yaml).
+  githubConfigSecret: arc-github-config
+
+  # Scale-to-zero. Pods spawn on-demand, terminate after one job.
+  minRunners: 0
+  maxRunners: 5
+
+  # Containers run as the default GitHub runner image. Override per-job
+  # via container actions if needed.
+  containerMode:
+    type: ""   # empty = "kubernetes" mode disabled, plain pod mode
+
+  template:
+    spec:
+      serviceAccountName: arc-runner
+      containers:
+        - name: runner
+          image: ghcr.io/actions/actions-runner:latest
+          command: ["/home/runner/run.sh"]
+          resources:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
