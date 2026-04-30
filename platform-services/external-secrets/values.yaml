@@ -1,0 +1,11 @@
+external-secrets:
+  installCRDs: true
+  serviceAccount:
+    create: true
+    name: external-secrets
+    # IRSA role ARN supplied by Tofu later — for bootstrap, ESO uses the node
+    # role's permissions. Phase 5b extends this with proper IRSA.
+  webhook:
+    create: true
+  certController:
+    create: true

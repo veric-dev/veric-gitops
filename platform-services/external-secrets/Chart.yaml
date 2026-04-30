@@ -1,0 +1,10 @@
+apiVersion: v2
+name: external-secrets
+description: External Secrets Operator umbrella chart for Veric platform.
+type: application
+version: 0.1.0
+appVersion: "0.10"
+dependencies:
+  - name: external-secrets
+    version: "0.10.4"
+    repository: https://charts.external-secrets.io

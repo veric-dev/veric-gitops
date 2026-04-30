@@ -1,0 +1,13 @@
+cluster-autoscaler:
+  autoDiscovery:
+    clusterName: veric-platform-dev # overridden per env
+  awsRegion: us-west-2
+  rbac:
+    serviceAccount:
+      name: cluster-autoscaler
+      # IRSA annotation set per env via overlay or env-specific values
+  extraArgs:
+    skip-nodes-with-system-pods: false
+    skip-nodes-with-local-storage: false
+    balance-similar-node-groups: true
+    expander: least-waste

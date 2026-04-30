@@ -1,0 +1,24 @@
+external-dns:
+  provider:
+    name: cloudflare
+  env:
+    - name: CF_API_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: cloudflare-api-token
+          key: token
+  # Cloudflare token comes from external-secrets ExternalSecret pulling from
+  # AWS SSM /veric/foundation/cloudflare/api-token. The ExternalSecret YAML
+  # is in templates/external-secret.yaml of this chart.
+  domainFilters:
+    # Each cluster's external-dns is scoped to its own subdomain prefix; the
+    # apex stays human-managed. Per-platform overrides live in values-{env}.yaml.
+    - veric.dev
+  policy: sync # we want it to delete records when k8s resources go away
+  registry: txt
+  txtOwnerId: veric-platform-pdev # overridden in values-{env}.yaml
+  txtPrefix: _externaldns.
+  sources:
+    - service
+    - ingress
+  interval: 1m

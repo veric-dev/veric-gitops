@@ -1,0 +1,66 @@
+# Cluster-services ApplicationSet
+#
+# One Application per (service) targeting the in-cluster destination. The
+# cluster-info ConfigMap (in argocd ns, written by Tofu argocd-apps module)
+# supplies environment + platform labels read by Helm values via plain
+# ConfigMap mount or by Argo's templating.
+#
+# We use a list generator (one entry per platform-service) plus a deferred
+# values-file selection based on the cluster's "environment_short" label.
+# Argo's git generator can't read the local cluster's CM — we work around
+# that by storing per-platform values in the same paths and selecting via
+# the env label baked into the Application name at bootstrap time.
+#
+# This file is the SECOND link in the bootstrap chain (after Tofu's
+# bootstrap Application points at this directory).
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: platform-services
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    # List of cluster services to fan out across. Each entry maps to a
+    # subdirectory under platform-services/.
+    - list:
+        elements:
+          - service: external-secrets
+            syncWave: "-3"
+          - service: external-dns
+            syncWave: "-2"
+          - service: cluster-autoscaler
+            syncWave: "-2"
+          - service: argocd-image-updater
+            syncWave: "-1"
+          - service: buildkit
+            syncWave: "0"
+  template:
+    metadata:
+      name: '{{.service}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{.syncWave}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/veric-dev/veric-gitops
+        targetRevision: main
+        path: 'platform-services/{{.service}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{.service}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

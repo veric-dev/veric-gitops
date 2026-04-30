@@ -1,0 +1,18 @@
+argocd-image-updater:
+  config:
+    # No :latest follows; Image Updater pinned to immutable :sha-XXX strategy.
+    # Promotion model: nonprod auto-merge, prod requires PR (per design §2 #9).
+    registries:
+      - name: ECR
+        api_url: https://487542879472.dkr.ecr.us-west-2.amazonaws.com
+        prefix: 487542879472.dkr.ecr.us-west-2.amazonaws.com
+        ping: yes
+        insecure: no
+        credentials: ext:/scripts/ecr-login.sh
+        credexpire: 11h
+  rbac:
+    enabled: true
+  serviceAccount:
+    create: true
+    name: argocd-image-updater
+    # IRSA annotation set in env overlay
