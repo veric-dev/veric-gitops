@@ -3,8 +3,12 @@ external-secrets:
   serviceAccount:
     create: true
     name: external-secrets
-    # IRSA role ARN supplied by Tofu later — for bootstrap, ESO uses the node
-    # role's permissions. Phase 5b extends this with proper IRSA.
+    annotations:
+      # IRSA role in the platform account whose only permission is
+      # sts:AssumeRole onto the foundation eso-reader role. The role name is
+      # deterministic: veric-eso-platform-<cluster_name>. ApplicationSet env
+      # overlay (TBD) substitutes account_id; for now pdev hardcoded.
+      eks.amazonaws.com/role-arn: "arn:aws:iam::381234267633:role/veric-eso-platform-veric-platform-dev"
   webhook:
     create: true
   certController:
