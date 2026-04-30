@@ -58,9 +58,20 @@ spec:
         syncOptions:
           - CreateNamespace=true
           - ServerSideApply=true
+          - RespectIgnoreDifferences=true
         retry:
           limit: 5
           backoff:
             duration: 5s
             factor: 2
             maxDuration: 3m
+      # ESO injects defaults (decodingStrategy, metadataPolicy, deletionPolicy,
+      # creationPolicy, conversionStrategy) on ExternalSecrets that aren't in
+      # the chart-rendered manifest. Ignore those so apps stay InSync.
+      ignoreDifferences:
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jsonPointers:
+            - /spec/data
+            - /spec/target/creationPolicy
+            - /spec/target/deletionPolicy
