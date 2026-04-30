@@ -4,8 +4,10 @@ cluster-autoscaler:
   awsRegion: us-west-2
   rbac:
     serviceAccount:
-      name: cluster-autoscaler
-      # IRSA annotation set per env via overlay or env-specific values
+      create: true
+      name: cluster-autoscaler-aws-cluster-autoscaler
+      annotations:
+        eks.amazonaws.com/role-arn: "arn:aws:iam::381234267633:role/veric-cluster-autoscaler-veric-platform-dev"
   extraArgs:
     skip-nodes-with-system-pods: false
     skip-nodes-with-local-storage: false

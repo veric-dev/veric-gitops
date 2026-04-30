@@ -9,10 +9,11 @@ argocd-image-updater:
         ping: yes
         insecure: no
         credentials: ext:/scripts/ecr-login.sh
-        credexpire: 11h
+        credsexpire: 11h
   rbac:
     enabled: true
   serviceAccount:
     create: true
     name: argocd-image-updater
-    # IRSA annotation set in env overlay
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::381234267633:role/veric-image-updater-veric-platform-dev"
