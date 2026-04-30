@@ -1,0 +1,14 @@
+.DS_Store
+.idea/
+.vscode/
+*.swp
+.env
+.env.local
+
+# helm artifacts
+**/charts/
+**/Chart.lock
+
+# rendered manifests
+.rendered/
+*.rendered.yaml
