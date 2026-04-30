@@ -1,0 +1,26 @@
+image:
+  # Public image for the first smoke — once we're confident, we'll swap to
+  # an ECR-hosted image to also exercise cross-account ECR pulls.
+  repository: nginxinc/nginx-unprivileged
+  tag: "1.27"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  className: alb
+  hostname: smoke.pdev.veric.dev
+  certificateArn: "arn:aws:acm:us-west-2:381234267633:certificate/6699dbb0-896c-4552-8ed0-c57432f58b38"
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 64Mi
+  requests:
+    cpu: 50m
+    memory: 32Mi

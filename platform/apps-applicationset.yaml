@@ -1,0 +1,40 @@
+# Tenant apps (vs platform-services). One Application per app under apps/,
+# deployed to the local cluster for now.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: tenant-apps
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - app: platform-smoke
+            namespace: platform-smoke
+  template:
+    metadata:
+      name: '{{.app}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/veric-dev/veric-gitops
+        targetRevision: main
+        path: 'apps/{{.app}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{.namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

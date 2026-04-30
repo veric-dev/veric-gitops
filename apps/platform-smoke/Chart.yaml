@@ -1,0 +1,6 @@
+apiVersion: v2
+name: platform-smoke
+description: Smoke-test app proving the platform stack end-to-end (image pull from foundation ECR, ALB ingress, ACM cert, external-dns CNAME).
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
