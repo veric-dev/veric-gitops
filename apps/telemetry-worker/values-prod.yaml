@@ -1,8 +1,19 @@
-enabled: false
+enabled: true
+
+image:
+  # Pinned manually pending image-updater fix (#76 deleted; see project memory).
+  tag: sha-b2a63bb013f3
+
 replicaCount: 3
+
+ingress:
+  hostname: telemetry.prod.veric.dev
+  certificateArn: arn:aws:acm:us-west-2:514224758553:certificate/1229a8a8-00e9-4fc3-ab11-110f57485366
+
 pdb:
   enabled: true
   minAvailable: 2
+
 resources:
   requests:
     cpu: 200m
@@ -10,11 +21,20 @@ resources:
   limits:
     cpu: 2000m
     memory: 2Gi
+
 rds:
   ssmEndpointParam: /veric/platform-prod/rds/endpoint
   ssmPortParam: /veric/platform-prod/rds/port
   ssmDbNameParam: /veric/platform-prod/rds/db-name
   masterSecretName: /veric/platform-prod/rds/master
+
 serviceAccount:
   name: telemetry-worker
   roleArn: arn:aws:iam::514224758553:role/veric-app-telemetry-worker-veric-platform-prod
+
+externalSecrets:
+  data:
+    - secretKey: DATABASE_URL
+      remoteKey: /veric/platform-prod/telemetry-worker/database-url
+    - secretKey: BETTER_AUTH_SECRET
+      remoteKey: /veric/platform-prod/telemetry-worker/better-auth-secret
