@@ -8,6 +8,14 @@ image:
 ingress:
   hostname: app.prod.veric.dev
   certificateArn: arn:aws:acm:us-west-2:514224758553:certificate/1229a8a8-00e9-4fc3-ab11-110f57485366
+  # Apex cutover (P12-A4 unblocker, 2026-05-01): the prod web ingress also
+  # serves veric.dev + www.veric.dev so the CF apex CNAME can flip from
+  # Azure CAE → AWS ALB. Apex cert is per-env tofu output apex_certificate_arn.
+  additionalHosts:
+    - veric.dev
+    - www.veric.dev
+  additionalCertArns:
+    - arn:aws:acm:us-west-2:514224758553:certificate/e089bfd3-8173-4e26-b241-6d223c3e5acd
 
 autoscaling:
   enabled: true

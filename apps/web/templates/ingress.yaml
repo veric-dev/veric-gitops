@@ -1,4 +1,6 @@
 {{- if and .Values.enabled .Values.ingress.enabled -}}
+{{- $certArns := prepend (default (list) .Values.ingress.additionalCertArns) .Values.ingress.certificateArn -}}
+{{- $hosts := prepend (default (list) .Values.ingress.additionalHosts) .Values.ingress.hostname -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -10,11 +12,12 @@ metadata:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443},{"HTTP":80}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"
-    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.ingress.certificateArn | quote }}
+    alb.ingress.kubernetes.io/certificate-arn: {{ join "," $certArns | quote }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
-    - host: {{ .Values.ingress.hostname }}
+    {{- range $host := $hosts }}
+    - host: {{ $host }}
       http:
         paths:
           - path: /
@@ -23,5 +26,6 @@ spec:
               service:
                 name: web
                 port:
-                  number: {{ .Values.service.port }}
+                  number: {{ $.Values.service.port }}
+    {{- end }}
 {{- end }}

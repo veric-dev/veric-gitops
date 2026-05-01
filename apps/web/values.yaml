@@ -31,6 +31,12 @@ ingress:
   hostname: ""           # set per-env
   certificateArn: ""     # set per-env from tofu output platform_certificate_arn
   scheme: internet-facing
+  # Additional hostnames (rule entries) and additional ACM cert ARNs (joined
+  # into the alb.ingress.kubernetes.io/certificate-arn annotation). Used in
+  # prod to attach the apex (veric.dev + www.veric.dev) cert alongside the
+  # platform wildcard.
+  additionalHosts: []
+  additionalCertArns: []
 
 # Horizontal autoscaling — only meaningful in nonprod/prod.
 autoscaling:
