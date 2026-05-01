@@ -3,7 +3,7 @@ image:
   # Pinned manually pending image-updater fix (#76). The :main floating
   # tag in ECR still points at the pre-port Azure Functions image, which
   # has no /healthz on :8080 and fails the new readiness probe.
-  tag: sha-dece55d553c6
+  tag: sha-d3636cccb773
 replicaCount: 2
 
 ingress:
