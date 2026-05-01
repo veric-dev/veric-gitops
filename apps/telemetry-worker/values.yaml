@@ -10,11 +10,24 @@ image:
 
 replicaCount: 1
 
-# No service / no ingress — worker pulls from a queue, no inbound traffic.
+# Standalone Node HTTP service. Exposes POST /api/v1/telemetry and a
+# plaintext GET /healthz for k8s probes. The ALB ingress is per-env
+# because the cert ARN + hostname are platform-specific.
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: alb
+  hostname: ""           # set per-env (e.g. telemetry.nonprod.veric.dev)
+  certificateArn: ""     # set per-env from tofu output platform_certificate_arn
+  scheme: internet-facing
 
 env:
   NODE_ENV: production
-  DATABASE_SSL: "true"
+  PORT: "8080"
 
 externalSecrets:
   enabled: true
@@ -24,7 +37,7 @@ externalSecrets:
   # Suggested entries during cutover:
   #   - secretKey: DATABASE_URL
   #     remoteKey: /veric/<env>/telemetry-worker/database-url
-  #   - secretKey: SNOWFLAKE_PASSWORD
+  #   - secretKey: SNOWFLAKE_INGEST_PASSWORD
   #     remoteKey: /veric/<env>/telemetry-worker/snowflake-password
 
 resources:
@@ -37,10 +50,17 @@ resources:
 
 probes:
   liveness:
-    exec:
-      command: ["/bin/true"]   # placeholder — replace with real worker liveness
-    initialDelaySeconds: 30
-    periodSeconds: 30
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 15
+  readiness:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 3
+    periodSeconds: 5
 
 pdb:
   enabled: false

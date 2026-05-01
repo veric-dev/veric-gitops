@@ -20,6 +20,10 @@ spec:
         - name: worker
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
           env:
             {{- range $k, $v := .Values.env }}
             - name: {{ $k }}
@@ -32,6 +36,10 @@ spec:
           {{- end }}
           livenessProbe:
             {{- toYaml .Values.probes.liveness | nindent 12 }}
+          {{- with .Values.probes.readiness }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 {{- end }}
