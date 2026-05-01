@@ -1,5 +1,13 @@
-# Tenant apps (vs platform-services). One Application per app under apps/,
-# deployed to the local cluster for now.
+# Tenant apps (vs platform-services). Matrix(list × clusters) fans out one
+# Application per (app, cluster) pair. Each platform's argocd only sees its
+# own in-cluster (registered as a labeled Secret by tofu argocd_apps), so on
+# any given cluster the matrix produces exactly one Application per app.
+#
+# The cluster's `platform.veric.dev/environment-short` label (pdev|nonprod|prod)
+# selects the per-env values file (apps/<app>/values-<env_short>.yaml).
+#
+# Apps default to enabled: false in their values-*.yaml — flipped on per-env
+# during Azure→AWS cutover.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -9,21 +17,46 @@ spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
   generators:
-    - list:
-        elements:
-          - app: platform-smoke
-            namespace: platform-smoke
+    - matrix:
+        generators:
+          - list:
+              elements:
+                - app: platform-smoke
+                  namespace: platform-smoke
+                  syncWave: "0"
+                - app: web
+                  namespace: web
+                  syncWave: "10"
+                - app: telemetry-worker
+                  namespace: telemetry-worker
+                  syncWave: "11"
+                - app: dbt
+                  namespace: dbt
+                  syncWave: "12"
+          - clusters:
+              selector:
+                matchLabels:
+                  argocd.argoproj.io/secret-type: cluster
   template:
     metadata:
-      name: '{{.app}}'
+      name: '{{.app}}-{{index .metadata.labels "platform.veric.dev/environment-short"}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{.syncWave}}'
     spec:
       project: default
       source:
         repoURL: https://github.com/veric-dev/veric-gitops
         targetRevision: main
         path: 'apps/{{.app}}'
+        helm:
+          # ignoreMissingValueFiles: lets platform-smoke (no per-env files)
+          # coexist with apps that have full values-{pdev,nonprod,prod}.yaml.
+          ignoreMissingValueFiles: true
+          valueFiles:
+            - values.yaml
+            - values-{{index .metadata.labels "platform.veric.dev/environment-short"}}.yaml
       destination:
-        server: https://kubernetes.default.svc
+        server: '{{.server}}'
         namespace: '{{.namespace}}'
       syncPolicy:
         automated:
@@ -38,3 +71,10 @@ spec:
             duration: 5s
             factor: 2
             maxDuration: 3m
+      ignoreDifferences:
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jsonPointers:
+            - /spec/data
+            - /spec/target/creationPolicy
+            - /spec/target/deletionPolicy

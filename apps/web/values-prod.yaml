@@ -30,3 +30,7 @@ rds:
   ssmPortParam: /veric/platform-prod/rds/port
   ssmDbNameParam: /veric/platform-prod/rds/db-name
   masterSecretName: /veric/platform-prod/rds/master
+
+serviceAccount:
+  name: web
+  roleArn: arn:aws:iam::514224758553:role/veric-app-web-veric-platform-prod

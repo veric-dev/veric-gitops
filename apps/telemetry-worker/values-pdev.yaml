@@ -12,3 +12,6 @@ rds:
   ssmPortParam: /veric/platform-dev/rds/port
   ssmDbNameParam: /veric/platform-dev/rds/db-name
   masterSecretName: /veric/platform-dev/rds/master
+serviceAccount:
+  name: telemetry-worker
+  roleArn: arn:aws:iam::381234267633:role/veric-app-telemetry-worker-veric-platform-dev

@@ -13,3 +13,6 @@ resources:
 args:
   - |
     dbt deps && dbt build --target ${DBT_TARGET:-prod}
+serviceAccount:
+  name: dbt
+  roleArn: arn:aws:iam::514224758553:role/veric-app-dbt-veric-platform-prod

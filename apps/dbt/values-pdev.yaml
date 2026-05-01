@@ -11,3 +11,6 @@ resources:
   limits:
     cpu: 1000m
     memory: 1Gi
+serviceAccount:
+  name: dbt
+  roleArn: arn:aws:iam::381234267633:role/veric-app-dbt-veric-platform-dev
