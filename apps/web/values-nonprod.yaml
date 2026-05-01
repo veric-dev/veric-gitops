@@ -1,9 +1,9 @@
 # platform-nonprod — first env to flip on during Azure cutover.
-enabled: false
+enabled: true
 
 ingress:
   hostname: app.nonprod.veric.dev
-  certificateArn: ""   # platform-nonprod tofu output platform_certificate_arn
+  certificateArn: arn:aws:acm:us-west-2:155055143405:certificate/8ce82722-2da5-4f24-8f4b-f64077abc6fa
 
 autoscaling:
   enabled: true
@@ -34,3 +34,10 @@ rds:
 serviceAccount:
   name: web
   roleArn: arn:aws:iam::155055143405:role/veric-app-web-veric-platform-nonprod
+
+externalSecrets:
+  data:
+    - secretKey: DATABASE_URL
+      remoteKey: /veric/platform-nonprod/web/database-url
+    - secretKey: BETTER_AUTH_SECRET
+      remoteKey: /veric/platform-nonprod/web/better-auth-secret

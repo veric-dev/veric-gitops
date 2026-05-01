@@ -55,8 +55,8 @@ env:
 externalSecrets:
   enabled: true
   refreshInterval: 1h
-  # SecretStore wired by tofu cluster-config (kind: ClusterSecretStore).
-  secretStore: foundation-sm
+  # ClusterSecretStore wired by platform-services/external-secrets/templates.
+  secretStore: aws-foundation-secretsmanager
   # Names follow the contract /veric/<env>/web/<key> in foundation Secrets
   # Manager. Per-env overrides specify the exact path (env may be
   # platform-pdev / platform-nonprod / platform-prod).

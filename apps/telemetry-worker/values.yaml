@@ -19,7 +19,7 @@ env:
 externalSecrets:
   enabled: true
   refreshInterval: 1h
-  secretStore: foundation-sm
+  secretStore: aws-foundation-secretsmanager
   data: []
   # Suggested entries during cutover:
   #   - secretKey: DATABASE_URL

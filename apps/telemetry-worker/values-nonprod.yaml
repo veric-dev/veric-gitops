@@ -1,4 +1,4 @@
-enabled: false
+enabled: true
 replicaCount: 2
 pdb:
   enabled: true
@@ -18,3 +18,10 @@ rds:
 serviceAccount:
   name: telemetry-worker
   roleArn: arn:aws:iam::155055143405:role/veric-app-telemetry-worker-veric-platform-nonprod
+
+externalSecrets:
+  data:
+    - secretKey: DATABASE_URL
+      remoteKey: /veric/platform-nonprod/telemetry-worker/database-url
+    - secretKey: BETTER_AUTH_SECRET
+      remoteKey: /veric/platform-nonprod/telemetry-worker/better-auth-secret
