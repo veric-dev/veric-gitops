@@ -4,7 +4,7 @@
 enabled: false
 
 image:
-  repository: 738497419404.dkr.ecr.us-west-2.amazonaws.com/veric/telemetry-worker
+  repository: 487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-saas-worker
   tag: "0.0.0"
   pullPolicy: IfNotPresent
 

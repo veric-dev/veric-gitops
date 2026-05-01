@@ -21,18 +21,25 @@ spec:
         generators:
           - list:
               elements:
+                # `imageList` drives the argocd-image-updater annotation
+                # rendered below — set to "" to opt out (apps with no
+                # ECR image, or images not yet wired through CI).
                 - app: platform-smoke
                   namespace: platform-smoke
                   syncWave: "0"
+                  imageList: ""
                 - app: web
                   namespace: web
                   syncWave: "10"
+                  imageList: "web=487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-saas"
                 - app: telemetry-worker
                   namespace: telemetry-worker
                   syncWave: "11"
+                  imageList: "worker=487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-saas-worker"
                 - app: dbt
                   namespace: dbt
                   syncWave: "12"
+                  imageList: ""
           - clusters:
               selector:
                 matchLabels:
@@ -42,6 +49,24 @@ spec:
       name: '{{.app}}-{{index .metadata.labels "platform.veric.dev/environment-short"}}'
       annotations:
         argocd.argoproj.io/sync-wave: '{{.syncWave}}'
+        # argocd-image-updater wiring. The `image-list` value uses
+        # the alias=registry/repo form; per-image strategy + tag
+        # filter pin to `sha-XXXXXXXXXXXX` from deploy-eks-{web,worker}.yml.
+        # Write-back is `argocd` (Application annotation), not `git`,
+        # because pdev/nonprod auto-track main while prod pins to a
+        # PR-only path (see platform-services/argocd-image-updater).
+        # `imageList: ""` (platform-smoke, dbt) renders an empty
+        # annotation that image-updater ignores.
+        argocd-image-updater.argoproj.io/image-list: '{{.imageList}}'
+        argocd-image-updater.argoproj.io/web.update-strategy: latest
+        argocd-image-updater.argoproj.io/web.allow-tags: 'regexp:^sha-[0-9a-f]{12}$'
+        argocd-image-updater.argoproj.io/web.helm.image-name: image.repository
+        argocd-image-updater.argoproj.io/web.helm.image-tag: image.tag
+        argocd-image-updater.argoproj.io/worker.update-strategy: latest
+        argocd-image-updater.argoproj.io/worker.allow-tags: 'regexp:^sha-[0-9a-f]{12}$'
+        argocd-image-updater.argoproj.io/worker.helm.image-name: image.repository
+        argocd-image-updater.argoproj.io/worker.helm.image-tag: image.tag
+        argocd-image-updater.argoproj.io/write-back-method: argocd
     spec:
       project: default
       source:

@@ -12,7 +12,7 @@ image:
   # foundation→platform repo-policy already deployed by tofu (see
   # foundation/ecr module). Tag pinned by argocd-image-updater on the
   # nonprod chart's values file once the build pipeline writes it.
-  repository: 738497419404.dkr.ecr.us-west-2.amazonaws.com/veric/web
+  repository: 487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-saas
   tag: "0.0.0"
   pullPolicy: IfNotPresent
 
