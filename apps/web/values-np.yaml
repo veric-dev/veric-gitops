@@ -19,6 +19,17 @@ autoscaling:
 
 replicaCount: 2
 
+# Override default DATABASE_SSL=true. postgres.js treats `true` as
+# rejectUnauthorized:true → AWS RDS chain isn't in Node's default trust
+# store → SELF_SIGNED_CERT_IN_CHAIN at boot. `require` keeps TLS but skips
+# cert verification (acceptable on in-VPC RDS). Bundle the AWS RDS CA
+# bundle and switch to `verify-full` if/when this lands in scope.
+env:
+  NODE_ENV: production
+  NEXT_RUNTIME: nodejs
+  DATABASE_SSL: require
+  DRIZZLE_MIGRATIONS_FOLDER: /app/drizzle
+
 pdb:
   enabled: true
   minAvailable: 1
