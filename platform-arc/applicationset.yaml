@@ -1,0 +1,61 @@
+# ARC ApplicationSet — scoped to platform-dev cluster only.
+#
+# A single ARC pool serves the whole org. Running ARC on more than one
+# cluster spawns redundant listeners polling the same `ci-runner` scale
+# set, which is wasteful at best and confusing at worst (jobs land on
+# whichever pool grabs them first). The platform-dev tofu env creates
+# the bootstrap Application that points at this directory; nonprod/prod
+# tofu envs do not.
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: platform-arc
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          # Controller installs CRDs the runner-set CR depends on — sync
+          # waves enforce order.
+          - service: arc-controller
+            syncWave: "0"
+          - service: arc-runner-set
+            syncWave: "1"
+  template:
+    metadata:
+      name: '{{.service}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{.syncWave}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/veric-dev/veric-gitops
+        targetRevision: main
+        path: 'platform-services/{{.service}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{.service}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+      ignoreDifferences:
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jsonPointers:
+            - /spec/data
+            - /spec/target/creationPolicy
+            - /spec/target/deletionPolicy

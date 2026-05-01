@@ -37,12 +37,10 @@ spec:
             syncWave: "-1"
           - service: buildkit
             syncWave: "0"
-          # ARC: controller installs CRDs that the runner-set's
-          # AutoScalingRunnerSet CR depends on — sync waves enforce order.
-          - service: arc-controller
-            syncWave: "0"
-          - service: arc-runner-set
-            syncWave: "1"
+          # ARC (arc-controller, arc-runner-set) is scoped to platform-dev
+          # only via a separate bootstrap path (platform-arc/). Don't add
+          # it here — having it on every cluster spawns redundant listeners
+          # against the same scale-set name, which collide on org level.
   template:
     metadata:
       name: '{{.service}}'
