@@ -1,11 +1,22 @@
 # ARC ApplicationSet — scoped to platform-dev cluster only.
 #
 # A single ARC pool serves the whole org. Running ARC on more than one
-# cluster spawns redundant listeners polling the same `ci-runner` scale
-# set, which is wasteful at best and confusing at worst (jobs land on
-# whichever pool grabs them first). The platform-dev tofu env creates
-# the bootstrap Application that points at this directory; nonprod/prod
+# cluster spawns redundant listeners polling the same scale set, which
+# is wasteful at best and confusing at worst (jobs land on whichever
+# pool grabs them first). The platform-dev tofu env creates the
+# bootstrap Application that points at this directory; nonprod/prod
 # tofu envs do not.
+#
+# We deploy ONE arc-controller plus FIVE ephemeral runner scale-sets
+# named after the legacy Azure VMSS pool labels (`fast`, `release`,
+# `build`, `spot`, `self-hosted-linux-x64`) — each scale-set is a
+# separate Helm release of the SAME `arc-runner-set` chart, sharded
+# by namespace + helm.parameters override. Naming the scale-sets
+# after the existing labels means sibling-repo workflows
+# (`runs-on: [self-hosted, linux, x64, fast]` etc.) match without any
+# rewrites — ephemeral runners self-register `[self-hosted, Linux,
+# X64, <scale-set-name>]` and GH self-hosted label match is
+# case-insensitive.
 
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -21,9 +32,44 @@ spec:
           # Controller installs CRDs the runner-set CR depends on — sync
           # waves enforce order.
           - service: arc-controller
+            chart: arc-controller
+            namespace: arc-controller
             syncWave: "0"
-          - service: arc-runner-set
+            poolName: ""
+            maxRunners: ""
+          # Five ephemeral runner-sets, one per legacy pool label.
+          # All use the same arc-runner-set chart with helm parameter
+          # overrides for `runnerScaleSetName` and `maxRunners`.
+          - service: arc-runner-set-fast
+            chart: arc-runner-set
+            namespace: arc-runner-set-fast
             syncWave: "1"
+            poolName: fast
+            maxRunners: "10"
+          - service: arc-runner-set-release
+            chart: arc-runner-set
+            namespace: arc-runner-set-release
+            syncWave: "1"
+            poolName: release
+            maxRunners: "10"
+          - service: arc-runner-set-build
+            chart: arc-runner-set
+            namespace: arc-runner-set-build
+            syncWave: "1"
+            poolName: build
+            maxRunners: "10"
+          - service: arc-runner-set-spot
+            chart: arc-runner-set
+            namespace: arc-runner-set-spot
+            syncWave: "1"
+            poolName: spot
+            maxRunners: "10"
+          - service: arc-runner-set-self-hosted-linux-x64
+            chart: arc-runner-set
+            namespace: arc-runner-set-self-hosted-linux-x64
+            syncWave: "1"
+            poolName: self-hosted-linux-x64
+            maxRunners: "10"
   template:
     metadata:
       name: '{{.service}}'
@@ -34,10 +80,18 @@ spec:
       source:
         repoURL: https://github.com/veric-dev/veric-gitops
         targetRevision: main
-        path: 'platform-services/{{.service}}'
+        path: 'platform-services/{{.chart}}'
+        helm:
+          parameters:
+            - name: gha-runner-scale-set.runnerScaleSetName
+              value: '{{.poolName}}'
+            - name: gha-runner-scale-set.maxRunners
+              value: '{{.maxRunners}}'
+            - name: poolNamespace
+              value: '{{.namespace}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{.service}}'
+        namespace: '{{.namespace}}'
       syncPolicy:
         automated:
           prune: true

@@ -1,6 +1,17 @@
+# Defaults shared by all five ARC runner-set Helm releases. The
+# applicationset.yaml in platform-arc/ instantiates this chart five
+# times — one per legacy pool label (`fast`, `release`, `build`,
+# `spot`, `self-hosted-linux-x64`) — overriding `runnerScaleSetName`
+# and `maxRunners` via helm.parameters at install time. Each release
+# gets its own namespace (`arc-runner-set-<pool>`) so the listener +
+# ephemeral runner pods are isolated per pool.
 gha-runner-scale-set:
-  # The label jobs reference: `runs-on: [self-hosted, ci-runner]`.
-  runnerScaleSetName: ci-runner
+  # `runnerScaleSetName` and `maxRunners` are overridden per-pool by
+  # platform-arc/applicationset.yaml; the values here are placeholders
+  # that should never reach the cluster but are kept non-empty so
+  # `helm template` works for local validation.
+  runnerScaleSetName: PLACEHOLDER
+  maxRunners: 1
 
   # Skip the runtime discovery dance — we know the controller's SA from
   # arc-controller/values.yaml.
@@ -17,7 +28,6 @@ gha-runner-scale-set:
 
   # Scale-to-zero. Pods spawn on-demand, terminate after one job.
   minRunners: 0
-  maxRunners: 5
 
   # Containers run as the default GitHub runner image. Override per-job
   # via container actions if needed.
