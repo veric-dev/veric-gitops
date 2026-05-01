@@ -1,0 +1,26 @@
+# platform-dev — leave disabled until cutover dry-run starts.
+enabled: false
+
+ingress:
+  hostname: app.pdev.veric.dev
+  # Resolved from tofu output: cd infra/tofu/environments/platform-dev && tofu output -raw platform_certificate_arn
+  certificateArn: ""
+
+autoscaling:
+  enabled: false
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+rds:
+  ssmEndpointParam: /veric/platform-dev/rds/endpoint
+  ssmPortParam: /veric/platform-dev/rds/port
+  ssmDbNameParam: /veric/platform-dev/rds/db-name
+  masterSecretName: /veric/platform-dev/rds/master

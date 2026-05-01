@@ -1,0 +1,32 @@
+# platform-nonprod — first env to flip on during Azure cutover.
+enabled: false
+
+ingress:
+  hostname: app.nonprod.veric.dev
+  certificateArn: ""   # platform-nonprod tofu output platform_certificate_arn
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+replicaCount: 2
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+rds:
+  ssmEndpointParam: /veric/platform-nonprod/rds/endpoint
+  ssmPortParam: /veric/platform-nonprod/rds/port
+  ssmDbNameParam: /veric/platform-nonprod/rds/db-name
+  masterSecretName: /veric/platform-nonprod/rds/master

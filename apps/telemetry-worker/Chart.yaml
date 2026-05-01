@@ -1,0 +1,6 @@
+apiVersion: v2
+name: telemetry-worker
+description: veric-saas telemetry ingestion worker — consumes events, writes to Postgres + Snowflake.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

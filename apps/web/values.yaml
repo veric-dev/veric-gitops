@@ -1,0 +1,108 @@
+# Defaults for the veric-saas web (Next.js) chart.
+#
+# Charts are scaffolded with `enabled: false` so the Application can be
+# wired into apps-applicationset.yaml without actually deploying anything
+# in any cluster. During Azure→AWS cutover, flip enabled=true per-env in
+# the corresponding values-{pdev,nonprod,prod}.yaml.
+
+enabled: false
+
+image:
+  # Repo lives in foundation ECR; cross-account pull works via the
+  # foundation→platform repo-policy already deployed by tofu (see
+  # foundation/ecr module). Tag pinned by argocd-image-updater on the
+  # nonprod chart's values file once the build pipeline writes it.
+  repository: 738497419404.dkr.ecr.us-west-2.amazonaws.com/veric/web
+  tag: "0.0.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+
+# Public ingress on the platform's wildcard cert (e.g. *.nonprod.veric.dev).
+# Hostname is per-env in values-<env>.yaml.
+ingress:
+  enabled: true
+  className: alb
+  hostname: ""           # set per-env
+  certificateArn: ""     # set per-env from tofu output platform_certificate_arn
+  scheme: internet-facing
+
+# Horizontal autoscaling — only meaningful in nonprod/prod.
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+# Env vars — non-secret defaults. Secret values come from ESO (see below).
+env:
+  NODE_ENV: production
+  NEXT_RUNTIME: nodejs
+  DATABASE_SSL: "true"
+  DRIZZLE_MIGRATIONS_FOLDER: /app/drizzle
+
+# ESO ExternalSecret — pulls from Secrets Manager via the ClusterSecretStore
+# wired up in P4f. Keys map to env-var names in the rendered Secret.
+#
+# `master-secret-arn` for the platform-tier RDS lives at
+# /veric/<full_env>/rds/master in the platform account; tofu writes the
+# arn to /veric/<full_env>/rds/master-secret-arn for downstream consumers.
+externalSecrets:
+  enabled: true
+  refreshInterval: 1h
+  # SecretStore wired by tofu cluster-config (kind: ClusterSecretStore).
+  secretStore: foundation-sm
+  # Names follow the contract /veric/<env>/web/<key> in foundation Secrets
+  # Manager. Per-env overrides specify the exact path (env may be
+  # platform-pdev / platform-nonprod / platform-prod).
+  data: []
+  # Inline RDS-derived secrets composed at deploy time (see notes/README).
+  # The web app pulls DATABASE_URL from the rendered Secret which combines
+  # the ESO-fetched master credentials with SSM-sourced endpoint+port.
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# Pod disruption budget — only enable in nonprod/prod with replicaCount>1.
+pdb:
+  enabled: false
+  minAvailable: 1
+
+probes:
+  liveness:
+    httpGet:
+      path: /api/health
+      port: 3000
+    initialDelaySeconds: 20
+    periodSeconds: 10
+  readiness:
+    httpGet:
+      path: /api/health
+      port: 3000
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+# Used by the runtime to construct DATABASE_URL from RDS master + endpoint
+# without baking secrets into the chart. Each env supplies the SSM
+# parameter names; the init-container resolves them.
+rds:
+  ssmEndpointParam: ""   # /veric/<full_env>/rds/endpoint
+  ssmPortParam: ""       # /veric/<full_env>/rds/port
+  ssmDbNameParam: ""     # /veric/<full_env>/rds/db-name
+  masterSecretName: ""   # /veric/<full_env>/rds/master  (in foundation SM)
+
+serviceAccount:
+  # IRSA role written by tofu cluster-config when web is wired in.
+  # Stays empty in defaults — per-env values override.
+  name: web
+  roleArn: ""

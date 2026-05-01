@@ -1,0 +1,58 @@
+# Defaults for the dbt CronJob chart. See apps/web/values.yaml for the
+# broader scaffold rationale (default-disabled, per-env overrides).
+
+enabled: false
+
+image:
+  repository: 738497419404.dkr.ecr.us-west-2.amazonaws.com/veric/dbt
+  tag: "0.0.0"
+  pullPolicy: IfNotPresent
+
+# CronJob schedule — UTC. Default hourly @ :15 (off the hour to avoid
+# stampedes against Snowflake at :00 maintenance windows). Override per env.
+schedule: "15 * * * *"
+concurrencyPolicy: Forbid
+successfulJobsHistoryLimit: 3
+failedJobsHistoryLimit: 3
+backoffLimit: 1
+activeDeadlineSeconds: 3600
+
+env:
+  DBT_PROFILES_DIR: /app/.dbt
+
+externalSecrets:
+  enabled: true
+  refreshInterval: 1h
+  secretStore: foundation-sm
+  data: []
+  # Suggested entries:
+  #   - secretKey: SNOWFLAKE_ACCOUNT
+  #     remoteKey: /veric/<env>/dbt/snowflake-account
+  #   - secretKey: SNOWFLAKE_USER
+  #     remoteKey: /veric/<env>/dbt/snowflake-user
+  #   - secretKey: SNOWFLAKE_PASSWORD
+  #     remoteKey: /veric/<env>/dbt/snowflake-password
+  #   - secretKey: SNOWFLAKE_ROLE
+  #     remoteKey: /veric/<env>/dbt/snowflake-role
+  #   - secretKey: SNOWFLAKE_WAREHOUSE
+  #     remoteKey: /veric/<env>/dbt/snowflake-warehouse
+  #   - secretKey: SNOWFLAKE_DATABASE
+  #     remoteKey: /veric/<env>/dbt/snowflake-database
+
+# `dbt run` by default; override per env (e.g. include `dbt build` for prod).
+command: ["/bin/sh", "-lc"]
+args:
+  - |
+    dbt deps && dbt run --target ${DBT_TARGET:-prod}
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+
+serviceAccount:
+  name: dbt
+  roleArn: ""

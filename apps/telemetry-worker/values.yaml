@@ -1,0 +1,57 @@
+# Defaults for the telemetry-worker chart. See apps/web/values.yaml for
+# the broader scaffold rationale (default-disabled, per-env overrides).
+
+enabled: false
+
+image:
+  repository: 738497419404.dkr.ecr.us-west-2.amazonaws.com/veric/telemetry-worker
+  tag: "0.0.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+# No service / no ingress — worker pulls from a queue, no inbound traffic.
+
+env:
+  NODE_ENV: production
+  DATABASE_SSL: "true"
+
+externalSecrets:
+  enabled: true
+  refreshInterval: 1h
+  secretStore: foundation-sm
+  data: []
+  # Suggested entries during cutover:
+  #   - secretKey: DATABASE_URL
+  #     remoteKey: /veric/<env>/telemetry-worker/database-url
+  #   - secretKey: SNOWFLAKE_PASSWORD
+  #     remoteKey: /veric/<env>/telemetry-worker/snowflake-password
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+probes:
+  liveness:
+    exec:
+      command: ["/bin/true"]   # placeholder — replace with real worker liveness
+    initialDelaySeconds: 30
+    periodSeconds: 30
+
+pdb:
+  enabled: false
+  minAvailable: 1
+
+rds:
+  ssmEndpointParam: ""
+  ssmPortParam: ""
+  ssmDbNameParam: ""
+  masterSecretName: ""
+
+serviceAccount:
+  name: telemetry-worker
+  roleArn: ""

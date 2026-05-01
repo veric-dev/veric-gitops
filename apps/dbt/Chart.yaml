@@ -1,0 +1,6 @@
+apiVersion: v2
+name: dbt
+description: veric-saas dbt — Snowflake transformations on a CronJob.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

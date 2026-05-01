@@ -1,0 +1,17 @@
+enabled: false
+replicaCount: 2
+pdb:
+  enabled: true
+  minAvailable: 1
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+rds:
+  ssmEndpointParam: /veric/platform-nonprod/rds/endpoint
+  ssmPortParam: /veric/platform-nonprod/rds/port
+  ssmDbNameParam: /veric/platform-nonprod/rds/db-name
+  masterSecretName: /veric/platform-nonprod/rds/master

@@ -1,0 +1,14 @@
+enabled: false
+replicaCount: 1
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+rds:
+  ssmEndpointParam: /veric/platform-dev/rds/endpoint
+  ssmPortParam: /veric/platform-dev/rds/port
+  ssmDbNameParam: /veric/platform-dev/rds/db-name
+  masterSecretName: /veric/platform-dev/rds/master
