@@ -82,13 +82,20 @@ spec:
         targetRevision: main
         path: 'platform-services/{{.chart}}'
         helm:
-          parameters:
-            - name: gha-runner-scale-set.runnerScaleSetName
-              value: '{{.poolName}}'
-            - name: gha-runner-scale-set.maxRunners
-              value: '{{.maxRunners}}'
-            - name: poolNamespace
-              value: '{{.namespace}}'
+          # `values` (raw YAML string) rather than `parameters`/`valuesObject`
+          # so maxRunners reaches helm as a YAML int. The upstream
+          # gha-runner-scale-set template does
+          # `gt .Values.minRunners .Values.maxRunners`; `--set foo=10` and
+          # JSON-typed valuesObject both deliver "10" as a string and break
+          # the comparison. Inside `|`, Argo's goTemplate substitutes the
+          # placeholders into raw text that helm then parses as YAML.
+          # Extra keys are ignored by arc-controller (which doesn't consume
+          # them) so the same template works for the controller entry.
+          values: |
+            poolNamespace: {{.namespace}}
+            gha-runner-scale-set:
+              runnerScaleSetName: {{.poolName}}
+              maxRunners: {{.maxRunners}}
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{.namespace}}'
