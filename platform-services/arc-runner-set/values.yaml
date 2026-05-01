@@ -31,6 +31,15 @@ gha-runner-scale-set:
         - name: runner
           image: ghcr.io/actions/actions-runner:latest
           command: ["/home/runner/run.sh"]
+          # The actions-runner image bundles node20 at
+          # /home/runner/externals/node20/bin but doesn't put it on
+          # system PATH. Marketplace actions ship JS entrypoints with
+          # `#!/usr/bin/env node` shebangs, so without this `tofu init`
+          # (and any other action-wrapped step) fails with
+          # "/usr/bin/env: 'node': No such file or directory".
+          env:
+            - name: PATH
+              value: "/home/runner/externals/node20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
           resources:
             requests:
               cpu: "1"
