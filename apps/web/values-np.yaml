@@ -1,6 +1,12 @@
 # platform-nonprod — first env to flip on during Azure cutover.
 enabled: true
 
+# Initial tag = `main` (floating, pushed on every veric-saas main build).
+# argocd-image-updater pins this to a specific sha-XXX on its next poll
+# cycle (allow-tags regexp filters anything but `sha-[0-9a-f]{12}`).
+image:
+  tag: main
+
 ingress:
   hostname: app.nonprod.veric.dev
   certificateArn: arn:aws:acm:us-west-2:155055143405:certificate/8ce82722-2da5-4f24-8f4b-f64077abc6fa

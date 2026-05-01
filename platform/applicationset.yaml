@@ -23,27 +23,36 @@ spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
   generators:
-    # List of cluster services to fan out across. Each entry maps to a
-    # subdirectory under platform-services/.
-    - list:
-        elements:
-          - service: external-secrets
-            syncWave: "-3"
-          - service: external-dns
-            syncWave: "-2"
-          - service: cluster-autoscaler
-            syncWave: "-2"
-          - service: argocd-image-updater
-            syncWave: "-1"
-          - service: buildkit
-            syncWave: "0"
-          # ARC (arc-controller, arc-runner-set) is scoped to platform-dev
-          # only via a separate bootstrap path (platform-arc/). Don't add
-          # it here — having it on every cluster spawns redundant listeners
-          # against the same scale-set name, which collide on org level.
+    # matrix(services × clusters) — same shape as tenant-apps. Each cluster's
+    # local argocd only sees its own in-cluster Secret, so on any given
+    # cluster the matrix produces exactly one Application per service. This
+    # lets per-env values files (values-<env_short>.yaml) override account-
+    # specific things like IRSA role ARNs.
+    - matrix:
+        generators:
+          - list:
+              elements:
+                - service: external-secrets
+                  syncWave: "-3"
+                - service: external-dns
+                  syncWave: "-2"
+                - service: cluster-autoscaler
+                  syncWave: "-2"
+                - service: argocd-image-updater
+                  syncWave: "-1"
+                - service: buildkit
+                  syncWave: "0"
+                # ARC (arc-controller, arc-runner-set) is scoped to platform-dev
+                # only via a separate bootstrap path (platform-arc/). Don't add
+                # it here — having it on every cluster spawns redundant listeners
+                # against the same scale-set name, which collide on org level.
+          - clusters:
+              selector:
+                matchLabels:
+                  argocd.argoproj.io/secret-type: cluster
   template:
     metadata:
-      name: '{{.service}}'
+      name: '{{.service}}-{{index .metadata.labels "platform.veric.dev/environment-short"}}'
       annotations:
         argocd.argoproj.io/sync-wave: '{{.syncWave}}'
     spec:
@@ -52,8 +61,15 @@ spec:
         repoURL: https://github.com/veric-dev/veric-gitops
         targetRevision: main
         path: 'platform-services/{{.service}}'
+        helm:
+          # ignoreMissingValueFiles: services without per-env overrides keep
+          # using values.yaml only (no error if values-<env>.yaml is absent).
+          ignoreMissingValueFiles: true
+          valueFiles:
+            - values.yaml
+            - values-{{index .metadata.labels "platform.veric.dev/environment-short"}}.yaml
       destination:
-        server: https://kubernetes.default.svc
+        server: '{{.server}}'
         namespace: '{{.service}}'
       syncPolicy:
         automated:

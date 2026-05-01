@@ -1,0 +1,4 @@
+external-secrets:
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::514224758553:role/veric-eso-platform-veric-platform-prod"

@@ -1,4 +1,6 @@
 enabled: true
+image:
+  tag: main
 replicaCount: 2
 pdb:
   enabled: true
