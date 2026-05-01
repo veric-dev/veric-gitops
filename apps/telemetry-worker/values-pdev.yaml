@@ -1,5 +1,10 @@
-enabled: false
+enabled: true
 replicaCount: 1
+image:
+  # Same pin as np/prod (#76 image-updater fix pending). The :main floating
+  # tag in ECR still points at the pre-port Azure Functions image, which has
+  # no /healthz on :8080 and would fail the probe.
+  tag: sha-b2a63bb013f3
 resources:
   requests:
     cpu: 50m
@@ -7,6 +12,14 @@ resources:
   limits:
     cpu: 500m
     memory: 512Mi
+ingress:
+  hostname: telemetry.pdev.veric.dev
+  certificateArn: arn:aws:acm:us-west-2:381234267633:certificate/6699dbb0-896c-4552-8ed0-c57432f58b38
+externalSecrets:
+  # Disabled on pdev: no Snowflake creds plumbed yet, and the worker
+  # lazy-builds its publisher per-request, so /healthz works without env.
+  # Flip on once /veric/platform-dev/telemetry-worker/* are populated.
+  enabled: false
 rds:
   ssmEndpointParam: /veric/platform-dev/rds/endpoint
   ssmPortParam: /veric/platform-dev/rds/port
