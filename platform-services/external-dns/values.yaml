@@ -16,7 +16,12 @@ external-dns:
     - veric.dev
   policy: sync # we want it to delete records when k8s resources go away
   registry: txt
-  txtOwnerId: veric-platform-pdev # overridden in values-{env}.yaml
+  # txtOwnerId is REQUIRED to be unique per cluster — collision causes the
+  # external-dns instances to delete each other's records in a tight loop.
+  # Set in values-{env}.yaml (values-pdev.yaml / values-np.yaml / values-prod.yaml).
+  # Default left unset so a missing override fails loudly rather than silently
+  # colliding.
+  txtOwnerId: ""
   txtPrefix: _externaldns.
   sources:
     - service
