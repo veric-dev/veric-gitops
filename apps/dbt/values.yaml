@@ -6,8 +6,13 @@ enabled: false
 image:
   # Foundation ECR (487542879472) — built by veric-saas/.github/workflows/
   # deploy-eks-dbt.yml, pulled cross-account by platform-{nonprod,prod}.
+  # Repo is imageTagMutability: IMMUTABLE, so floating-tag patterns
+  # (`:main`, `:latest`) don't work — pin the sha here and bump per
+  # promotion until argocd-image-updater is repaired (currently broken
+  # on np/prod: server endpoint defaults to its own namespace and can't
+  # reach argocd-server.argocd).
   repository: 487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-dbt
-  tag: "0.0.0"
+  tag: sha-e1d53b8acb49
   pullPolicy: IfNotPresent
 
 # CronJob schedule — UTC. Default hourly @ :15 (off the hour to avoid
