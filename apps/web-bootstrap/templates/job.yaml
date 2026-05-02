@@ -96,8 +96,10 @@ spec:
               WEB_PASS=$(openssl rand -base64 48 | tr -d '/+=\n' | head -c 32)
               # CONNECT is granted to PUBLIC by default in postgres so we don't
               # GRANT CONNECT here. EXECUTE format(...%L...) handles literal
-              # quoting of the password safely.
-              PGPASSWORD="$RDS_PASS" psql \
+              # quoting of the password safely. PGSSLMODE=require: RDS rejects
+              # plaintext (rds.force_ssl=1); without this, psql would auth-fail
+              # over SSL then retry plain and surface a misleading pg_hba error.
+              PGSSLMODE=require PGPASSWORD="$RDS_PASS" psql \
                 --no-psqlrc --quiet --set ON_ERROR_STOP=on \
                 -h "$RDS_HOST" -p "$RDS_PORT" -U "$RDS_USER" -d "$RDS_DB" \
                 -v "v_web_pass=$WEB_PASS" <<'SQL'
