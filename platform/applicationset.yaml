@@ -38,6 +38,8 @@ spec:
                   syncWave: "-2"
                 - service: cluster-autoscaler
                   syncWave: "-2"
+                - service: karpenter
+                  syncWave: "-2"
                 - service: argocd-image-updater
                   syncWave: "-1"
                 # ARC (arc-controller, arc-runner-set) and BuildKit are scoped

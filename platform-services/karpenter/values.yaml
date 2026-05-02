@@ -1,0 +1,49 @@
+karpenter:
+  replicas: 1
+  serviceAccount:
+    create: true
+    name: karpenter
+    annotations:
+      eks.amazonaws.com/role-arn: "" # set per env
+  settings:
+    clusterName: "" # set per env
+    interruptionQueue: "" # set per env
+    featureGates:
+      spotToSpotConsolidation: true
+  controller:
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 1
+        memory: 1Gi
+  webhook:
+    enabled: false
+
+# NodePool/EC2NodeClass overrides per env. Defaults below match a "general
+# workloads" pool. Override discovery cluster name + node role per env.
+nodeClass:
+  amiFamily: AL2023
+  clusterName: "" # set per env
+  nodeRoleName: "" # set per env
+
+nodePool:
+  capacityTypes:
+    - on-demand
+    - spot
+  archs:
+    - amd64
+  instanceCategories:
+    - m
+    - c
+    - r
+  instanceGenerations:
+    - "5"
+    - "6"
+    - "7"
+  expireAfter: 720h
+  consolidationPolicy: WhenEmptyOrUnderutilized
+  consolidateAfter: 30s
+  cpuLimit: "200"
+  memoryLimit: "200Gi"

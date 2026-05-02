@@ -1,0 +1,16 @@
+karpenter:
+  replicas: 2
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::514224758553:role/veric-karpenter-controller-veric-platform-prod"
+  settings:
+    clusterName: veric-platform-prod
+    interruptionQueue: veric-karpenter-veric-platform-prod
+
+nodeClass:
+  clusterName: veric-platform-prod
+  nodeRoleName: veric-karpenter-node-veric-platform-prod
+
+nodePool:
+  cpuLimit: "500"
+  memoryLimit: "500Gi"

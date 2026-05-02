@@ -1,0 +1,11 @@
+karpenter:
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::381234267633:role/veric-karpenter-controller-veric-platform-dev"
+  settings:
+    clusterName: veric-platform-dev
+    interruptionQueue: veric-karpenter-veric-platform-dev
+
+nodeClass:
+  clusterName: veric-platform-dev
+  nodeRoleName: veric-karpenter-node-veric-platform-dev
