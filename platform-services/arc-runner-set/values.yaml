@@ -58,7 +58,16 @@ gha-runner-scale-set:
       serviceAccountName: arc-runner
       containers:
         - name: runner
-          image: ghcr.io/actions/actions-runner:latest
+          # Foundation-baked runner image: upstream actions-runner +
+          # build-essential / mold / pkg-config / libssl-dev /
+          # ca-certificates / curl preinstalled. Saves the ~30-60s
+          # `apt-get install` step that every Rust workflow used to
+          # run per cold pod. Built by veric-aws's
+          # build-runner-image.yml on push to runner-image/** + a
+          # weekly cron. ECR cross-account pull policy lets
+          # platform-{dev,nonprod,prod} EKS nodes fetch via the
+          # standard AmazonEC2ContainerRegistryReadOnly node role.
+          image: 487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-foundation/arc-runner:latest
           command: ["/home/runner/run.sh"]
           # The actions-runner image bundles node20 at
           # /home/runner/externals/node20/bin but doesn't put it on
