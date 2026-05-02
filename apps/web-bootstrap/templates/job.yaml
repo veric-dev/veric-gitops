@@ -107,7 +107,7 @@ spec:
               PGSSLMODE=require PGPASSWORD="$RDS_PASS" psql \
                 --no-psqlrc --quiet --set ON_ERROR_STOP=on \
                 -h "$RDS_HOST" -p "$RDS_PORT" -U "$RDS_USER" -d "$RDS_DB" \
-                -v "v_web_pass=$WEB_PASS" <<'SQL'
+                -v "v_web_pass=$WEB_PASS" -v "v_dbname=$RDS_DB" <<'SQL'
               DO $do$
               BEGIN
                 IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'veric_web') THEN
@@ -116,6 +116,7 @@ spec:
               END
               $do$;
               ALTER ROLE veric_web WITH LOGIN PASSWORD :'v_web_pass';
+              GRANT CONNECT, CREATE ON DATABASE :"v_dbname" TO veric_web;
               GRANT USAGE, CREATE ON SCHEMA public TO veric_web;
               GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA public TO veric_web;
               GRANT USAGE, SELECT, UPDATE          ON ALL SEQUENCES IN SCHEMA public TO veric_web;
