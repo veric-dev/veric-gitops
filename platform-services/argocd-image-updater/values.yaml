@@ -8,11 +8,16 @@ argocd-image-updater:
     # cycle.
     applicationsAPIKind: argocd
     # Point at argocd-server in the argocd namespace, not in our own ns.
+    # argocd-server runs with `--insecure` (server.insecure=true in the
+    # argocd-cmd-params-cm), so it speaks plain HTTP on port 8080 — the
+    # Service maps both :80 and :443 to that pod port. Connecting over
+    # TLS gets `connection reset by peer`. plaintext=true tells image-
+    # updater to skip TLS and use HTTP, matching the in-cluster setup.
     argocd:
       serverAddress: argocd-server.argocd
       grpcWeb: true
-      insecure: false
-      plaintext: false
+      insecure: true
+      plaintext: true
     # No :latest follows; Image Updater pinned to immutable :sha-XXX strategy.
     # Promotion model: nonprod auto-merge, prod requires PR (per design §2 #9).
     registries:
