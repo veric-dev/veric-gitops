@@ -40,12 +40,12 @@ spec:
                   syncWave: "-2"
                 - service: argocd-image-updater
                   syncWave: "-1"
-                - service: buildkit
-                  syncWave: "0"
-                # ARC (arc-controller, arc-runner-set) is scoped to platform-dev
-                # only via a separate bootstrap path (platform-arc/). Don't add
-                # it here — having it on every cluster spawns redundant listeners
-                # against the same scale-set name, which collide on org level.
+                # ARC (arc-controller, arc-runner-set) and BuildKit are scoped
+                # to platform-dev only via a separate bootstrap path
+                # (platform-arc/). For ARC: redundant listeners against the same
+                # scale-set name collide on org level. For BuildKit: there are
+                # no runners on np/prod that would consume it, so it'd just
+                # idle 8GiB of RAM per cluster.
           - clusters:
               selector:
                 matchLabels:

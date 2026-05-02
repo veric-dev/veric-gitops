@@ -1,0 +1,39 @@
+replicaCount: 1
+
+image:
+  repository: moby/buildkit
+  tag: v0.16.0-rootless
+  pullPolicy: IfNotPresent
+
+# Rootless BuildKit runs as uid 1000 in the user namespace; needs
+# `unconfined` seccomp + AppArmor to call user-namespace syscalls
+# without CAP_SYS_ADMIN. This is the buildkit upstream-recommended
+# rootless pose for k8s — no privileged sidecar, no host docker socket.
+podSecurityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+securityContext:
+  seccompProfile:
+    type: Unconfined
+  appArmorProfile:
+    type: Unconfined
+
+service:
+  port: 1234
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 4
+    memory: 8Gi
+
+# emptyDir cache for first cut — survives pod restarts only as long as
+# the node doesn't recycle. Move to a PVC once we know the working set
+# size and have a real cost story for EBS gp3.
+cache:
+  emptyDir:
+    medium: ""
+    sizeLimit: 32Gi

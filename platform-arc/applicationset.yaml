@@ -70,6 +70,18 @@ spec:
             syncWave: "1"
             poolName: self-hosted-linux-x64
             maxRunners: "10"
+          # BuildKit lives on the same cluster as the ARC runners so the
+          # runner pods can resolve buildkit.buildkit.svc:1234 over cluster
+          # DNS. The chart's values.yaml ignores poolName/maxRunners; they're
+          # passed because the template's `helm.values` block always emits
+          # them. See platform-services/buildkit/Chart.yaml for rationale on
+          # the rootless pose + emptyDir cache.
+          - service: buildkit
+            chart: buildkit
+            namespace: buildkit
+            syncWave: "1"
+            poolName: ""
+            maxRunners: ""
   template:
     metadata:
       name: '{{.service}}'

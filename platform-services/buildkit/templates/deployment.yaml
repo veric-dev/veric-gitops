@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: buildkit
+  labels:
+    app.kubernetes.io/name: buildkit
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: buildkit
+  # Strategy: kill old before new. BuildKit holds in-flight builds and
+  # the cache in emptyDir, both of which are tied to the pod lifetime
+  # anyway — RollingUpdate would just spawn a second pod racing for the
+  # same TCP listener.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: buildkit
+      annotations:
+        # See values.yaml — these are the rootless pose buildkit upstream
+        # documents in their k8s example. Inline as pod annotations so the
+        # securityContext field doesn't have to set them (k8s 1.30+ supports
+        # appArmorProfile in securityContext but the AppArmor pod annotation
+        # is the path that works on every node we have).
+        container.apparmor.security.beta.kubernetes.io/buildkit: unconfined
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: buildkit
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --addr
+            - unix:///run/user/1000/buildkit/buildkitd.sock
+            - --addr
+            - tcp://0.0.0.0:1234
+            # Rootless mode picks an OCI worker that doesn't need CAP_SYS_ADMIN.
+            - --oci-worker-no-process-sandbox
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - containerPort: 1234
+              name: tcp
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+                - buildctl
+                - --addr
+                - tcp://localhost:1234
+                - debug
+                - workers
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          livenessProbe:
+            exec:
+              command:
+                - buildctl
+                - --addr
+                - tcp://localhost:1234
+                - debug
+                - workers
+            initialDelaySeconds: 30
+            periodSeconds: 60
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: cache
+              mountPath: /home/user/.local/share/buildkit
+      volumes:
+        - name: cache
+          emptyDir:
+            {{- with .Values.cache.emptyDir.medium }}
+            medium: {{ . }}
+            {{- end }}
+            sizeLimit: {{ .Values.cache.emptyDir.sizeLimit }}

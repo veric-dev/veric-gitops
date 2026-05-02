@@ -1,0 +1,17 @@
+apiVersion: v2
+name: buildkit
+description: |
+  In-cluster BuildKit daemon (rootless) reachable as
+  tcp://buildkit.buildkit.svc.cluster.local:1234. Image builds in CI go
+  through here instead of mounting a host Docker socket on every
+  ARC runner pod (security + we don't run privileged sidecars).
+  Push credentials come from the *client* side: the ARC runner
+  authenticates to ECR via its OIDC role and passes the docker config
+  through the build session — BuildKit itself doesn't need IRSA.
+  Scoped to the platform-dev cluster only (where ARC lives) by
+  registering through platform-arc/applicationset.yaml; the
+  platform-services applicationset deliberately does *not* include
+  buildkit because there are no runners to consume it on np/prod.
+type: application
+version: 0.1.0
+appVersion: v0.16.0
