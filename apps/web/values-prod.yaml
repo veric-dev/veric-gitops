@@ -26,10 +26,7 @@ autoscaling:
 replicaCount: 3
 
 pdb:
-  # Temporarily disabled 2026-05-02 to break the §4.1 chicken-and-egg
-  # (see comment in values-np.yaml). Re-enable once DATABASE_URL is
-  # populated and pods are healthy.
-  enabled: false
+  enabled: true
   minAvailable: 2
 
 resources:

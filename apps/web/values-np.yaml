@@ -31,13 +31,7 @@ env:
   DRIZZLE_MIGRATIONS_FOLDER: /app/packages/infrastructure/drizzle
 
 pdb:
-  # Temporarily disabled 2026-05-02 to break the §4.1 chicken-and-egg:
-  # tofu apply rolls node group → PDB blocks eviction because the only
-  # web pod is crashlooping on the placeholder DATABASE_URL → bootstrap
-  # Job (which seeds the real value) needs the seeder IRSA role created
-  # by that same tofu apply. Re-enable once DATABASE_URL is populated
-  # and pods are healthy.
-  enabled: false
+  enabled: true
   minAvailable: 1
 
 resources:
