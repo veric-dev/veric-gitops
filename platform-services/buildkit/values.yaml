@@ -16,8 +16,10 @@ podSecurityContext:
 securityContext:
   seccompProfile:
     type: Unconfined
-  appArmorProfile:
-    type: Unconfined
+  # AppArmor is set via the pod annotation `container.apparmor.security.
+  # beta.kubernetes.io/buildkit: unconfined` in templates/deployment.yaml
+  # — the structured `securityContext.appArmorProfile` field requires a
+  # newer apiserver schema and broke Argo's structured-merge diff cache.
 
 service:
   port: 1234
