@@ -1,5 +1,13 @@
 argocd-image-updater:
   config:
+    # Point at argocd-server in the argocd namespace, not in our own ns
+    # (the chart's default is `argocd-server.argocd-image-updater`, which
+    # never resolves and silently leaves applications=0 every cycle).
+    argocd:
+      serverAddress: argocd-server.argocd
+      grpcWeb: true
+      insecure: false
+      plaintext: false
     # No :latest follows; Image Updater pinned to immutable :sha-XXX strategy.
     # Promotion model: nonprod auto-merge, prod requires PR (per design §2 #9).
     registries:
@@ -12,8 +20,12 @@ argocd-image-updater:
         credsexpire: 11h
   rbac:
     enabled: true
+  # IRSA role-arn is per-cluster (one role per platform account that
+  # trusts that cluster's OIDC provider for the
+  # argocd-image-updater/argocd-image-updater SA). Set it in
+  # values-{pdev,np,prod}.yaml — leaving it blank here surfaces a clear
+  # error on misconfigured clusters instead of silently falling back to
+  # the wrong account's role.
   serviceAccount:
     create: true
     name: argocd-image-updater
-    annotations:
-      eks.amazonaws.com/role-arn: "arn:aws:iam::381234267633:role/veric-image-updater-veric-platform-dev"

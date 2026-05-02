@@ -1,0 +1,4 @@
+argocd-image-updater:
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::381234267633:role/veric-image-updater-veric-platform-dev"
