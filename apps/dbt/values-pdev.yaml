@@ -2,7 +2,6 @@ enabled: false
 # Run far less frequently in pdev — once a day at 04:15 UTC.
 schedule: "15 4 * * *"
 env:
-  DBT_PROFILES_DIR: /app/.dbt
   DBT_TARGET: pdev
 resources:
   requests:

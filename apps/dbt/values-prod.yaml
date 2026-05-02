@@ -2,7 +2,6 @@ enabled: true
 schedule: "15 */2 * * *"   # every 2 hours
 
 env:
-  DBT_PROFILES_DIR: /app/.dbt
   DBT_TARGET: prod
 
 resources:

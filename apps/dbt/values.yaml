@@ -25,7 +25,10 @@ backoffLimit: 1
 activeDeadlineSeconds: 3600
 
 env:
-  DBT_PROFILES_DIR: /app/.dbt
+  # Dockerfile copies apps/dbt/* (including profiles.yml) into /app and
+  # sets DBT_PROFILES_DIR=/app. Override here only if you've split
+  # profiles.yml out of the project dir.
+  DBT_PROFILES_DIR: /app
 
 externalSecrets:
   enabled: false
