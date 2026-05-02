@@ -12,7 +12,7 @@ image:
   # on np/prod: server endpoint defaults to its own namespace and can't
   # reach argocd-server.argocd).
   repository: 487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-dbt
-  tag: sha-e1d53b8acb49
+  tag: sha-fdf20340ff0b
   pullPolicy: IfNotPresent
 
 # CronJob schedule — UTC. Default hourly @ :15 (off the hour to avoid
