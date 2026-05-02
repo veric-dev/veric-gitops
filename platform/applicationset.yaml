@@ -42,6 +42,8 @@ spec:
                   syncWave: "-2"
                 - service: argocd-image-updater
                   syncWave: "-1"
+                - service: argo-rollouts
+                  syncWave: "-1"
                 # ARC (arc-controller, arc-runner-set) and BuildKit are scoped
                 # to platform-dev only via a separate bootstrap path
                 # (platform-arc/). For ARC: redundant listeners against the same

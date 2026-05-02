@@ -112,3 +112,19 @@ serviceAccount:
   # Stays empty in defaults — per-env values override.
   name: web
   roleArn: ""
+
+# Argo Rollouts canary strategy. Off by default — only prod opts in for
+# now (pdev/np stay on Deployment for fast iteration). Without §4.4
+# observability there are no AnalysisTemplates, so the canary is purely
+# step-based: stage replicas at each weight, pause for the duration, then
+# advance. Pod readiness is the failure gate — a bad image stalls at the
+# first step instead of nuking all replicas.
+rollout:
+  enabled: false
+  steps:
+    - setWeight: 25
+    - pause: { duration: 60s }
+    - setWeight: 50
+    - pause: { duration: 60s }
+    - setWeight: 75
+    - pause: { duration: 60s }

@@ -59,3 +59,10 @@ externalSecrets:
       remoteKey: /veric/platform-prod/web/database-url
     - secretKey: BETTER_AUTH_SECRET
       remoteKey: /veric/platform-prod/web/better-auth-secret
+
+# Step-based canary: 25% (pause 60s) → 50% (pause 60s) → 75% (pause 60s)
+# → 100%. Pod readiness gates each step — a broken image fails at 25%
+# rather than rolling all 3 replicas at once. Add AnalysisTemplate gating
+# (latency / error-rate) once §4.4 observability lands.
+rollout:
+  enabled: true

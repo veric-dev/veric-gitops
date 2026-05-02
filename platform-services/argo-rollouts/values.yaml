@@ -1,0 +1,27 @@
+# argo-rollouts controller. Single replica everywhere (controller is not
+# stateful and the workloads can tolerate a brief reconciliation pause if
+# the pod restarts). Per-env overrides bump replicas + resources on prod.
+#
+# Without §4.4 observability landed there are no AnalysisTemplates (no
+# Prom datasource), so canary strategies on this cluster degrade to step-
+# based pause/resume — still useful as a deploy-safety guardrail.
+
+argo-rollouts:
+  controller:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: false # flip to true once §4.4 lands
+  dashboard:
+    enabled: false # CLI / argocd UI extension cover the same ground for now
+  notifications:
+    enabled: false
+  installCRDs: true

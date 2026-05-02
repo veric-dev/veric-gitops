@@ -1,6 +1,6 @@
-{{- if and .Values.enabled (not .Values.rollout.enabled) -}}
-apiVersion: apps/v1
-kind: Deployment
+{{- if and .Values.enabled .Values.rollout.enabled -}}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: web
   labels:
@@ -12,6 +12,12 @@ spec:
   selector:
     matchLabels:
       {{- include "web.selectorLabels" . | nindent 6 }}
+  strategy:
+    canary:
+      maxSurge: 25%
+      maxUnavailable: 0
+      steps:
+        {{- toYaml .Values.rollout.steps | nindent 8 }}
   template:
     metadata:
       labels:
