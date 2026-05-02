@@ -1,23 +1,12 @@
 argocd-image-updater:
   config:
-    # The chart only emits ARGOCD_SERVER + grpc/insecure/plaintext into
-    # the configmap when applicationsAPIKind == "argocd". Without this,
-    # the Deployment's env-vars are unset and the binary falls back to
-    # its compile-time default (`argocd-server.argocd-image-updater`),
-    # which silently resolves to nothing and leaves applications=0 each
-    # cycle.
-    applicationsAPIKind: argocd
-    # Point at argocd-server in the argocd namespace, not in our own ns.
-    # argocd-server runs with `--insecure` (server.insecure=true in the
-    # argocd-cmd-params-cm), so it speaks plain HTTP on port 8080 — the
-    # Service maps both :80 and :443 to that pod port. Connecting over
-    # TLS gets `connection reset by peer`. plaintext=true tells image-
-    # updater to skip TLS and use HTTP, matching the in-cluster setup.
-    argocd:
-      serverAddress: argocd-server.argocd
-      grpcWeb: true
-      insecure: true
-      plaintext: true
+    # `kubernetes` API kind reads Argo Application CRDs directly via the
+    # in-cluster API and writes annotation updates back to the same. No
+    # gRPC-to-argocd-server hop, no token-plumbing, no TLS-inception
+    # against argocd-server's `--insecure` HTTP. Auth is the pod's SA
+    # (chart wires the right RBAC). Recommended in-cluster setup since
+    # image-updater v0.13.
+    applicationsAPIKind: kubernetes
     # No :latest follows; Image Updater pinned to immutable :sha-XXX strategy.
     # Promotion model: nonprod auto-merge, prod requires PR (per design §2 #9).
     registries:
