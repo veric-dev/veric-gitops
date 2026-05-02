@@ -4,7 +4,9 @@
 enabled: false
 
 image:
-  repository: 738497419404.dkr.ecr.us-west-2.amazonaws.com/veric/dbt
+  # Foundation ECR (487542879472) — built by veric-saas/.github/workflows/
+  # deploy-eks-dbt.yml, pulled cross-account by platform-{nonprod,prod}.
+  repository: 487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-dbt
   tag: "0.0.0"
   pullPolicy: IfNotPresent
 
