@@ -1,8 +1,13 @@
 argocd-image-updater:
   config:
-    # Point at argocd-server in the argocd namespace, not in our own ns
-    # (the chart's default is `argocd-server.argocd-image-updater`, which
-    # never resolves and silently leaves applications=0 every cycle).
+    # The chart only emits ARGOCD_SERVER + grpc/insecure/plaintext into
+    # the configmap when applicationsAPIKind == "argocd". Without this,
+    # the Deployment's env-vars are unset and the binary falls back to
+    # its compile-time default (`argocd-server.argocd-image-updater`),
+    # which silently resolves to nothing and leaves applications=0 each
+    # cycle.
+    applicationsAPIKind: argocd
+    # Point at argocd-server in the argocd namespace, not in our own ns.
     argocd:
       serverAddress: argocd-server.argocd
       grpcWeb: true
