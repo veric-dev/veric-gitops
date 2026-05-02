@@ -37,39 +37,58 @@ spec:
             syncWave: "0"
             poolName: ""
             maxRunners: ""
+            bigPool: "false"
           # Five ephemeral runner-sets, one per legacy pool label.
           # All use the same arc-runner-set chart with helm parameter
           # overrides for `runnerScaleSetName` and `maxRunners`.
+          # Resource sizing per-pool: most pools inherit the chart
+          # default (2c/4c/8Gi/16Gi, the D4as_v5-equiv post-2026-05-02
+          # bump in values.yaml). The `release` pool sets `bigPool:
+          # "true"` so the helm `values:` template below inline-
+          # rewrites `gha-runner-scale-set.template.spec.containers`
+          # with 4c/8c/16Gi/32Gi (D8as_v5-equiv) — veric-cli's
+          # release-ship build links duckdb-bundled (~8 GiB peak) and
+          # parallelises 24+ codegen units, so link memory + codegen
+          # wall-clock are the binding constraints. Helm REPLACES
+          # arrays on merge (scalars/maps merge), so overriding just
+          # `resources` requires rewriting the whole `containers:`
+          # list. Other pools stay small to keep idle/spot economics
+          # tight.
           - service: arc-runner-set-fast
             chart: arc-runner-set
             namespace: arc-runner-set-fast
             syncWave: "1"
             poolName: fast
             maxRunners: "10"
+            bigPool: "false"
           - service: arc-runner-set-release
             chart: arc-runner-set
             namespace: arc-runner-set-release
             syncWave: "1"
             poolName: release
             maxRunners: "10"
+            bigPool: "true"
           - service: arc-runner-set-build
             chart: arc-runner-set
             namespace: arc-runner-set-build
             syncWave: "1"
             poolName: build
             maxRunners: "10"
+            bigPool: "false"
           - service: arc-runner-set-spot
             chart: arc-runner-set
             namespace: arc-runner-set-spot
             syncWave: "1"
             poolName: spot
             maxRunners: "10"
+            bigPool: "false"
           - service: arc-runner-set-self-hosted-linux-x64
             chart: arc-runner-set
             namespace: arc-runner-set-self-hosted-linux-x64
             syncWave: "1"
             poolName: self-hosted-linux-x64
             maxRunners: "10"
+            bigPool: "false"
           # BuildKit lives on the same cluster as the ARC runners so the
           # runner pods can resolve buildkit.buildkit.svc:1234 over cluster
           # DNS. The chart's values.yaml ignores poolName/maxRunners; they're
@@ -82,6 +101,7 @@ spec:
             syncWave: "1"
             poolName: ""
             maxRunners: ""
+            bigPool: "false"
   template:
     metadata:
       name: '{{.service}}'
@@ -103,11 +123,39 @@ spec:
           # placeholders into raw text that helm then parses as YAML.
           # Extra keys are ignored by arc-controller (which doesn't consume
           # them) so the same template works for the controller entry.
+          # `bigPool: "true"` injects a full
+          # `gha-runner-scale-set.template.spec.containers` array with
+          # 4c/8c/16Gi/32Gi resources for the `release` pool.
+          # Replicates the values.yaml container spec verbatim except
+          # for the resource bump — keep these in sync if values.yaml
+          # changes the runner image, command, env, or PATH.
           values: |
             poolNamespace: {{.namespace}}
             gha-runner-scale-set:
               runnerScaleSetName: {{.poolName}}
               maxRunners: {{.maxRunners}}
+              {{- if eq .bigPool "true" }}
+              template:
+                metadata:
+                  annotations:
+                    karpenter.sh/do-not-disrupt: "true"
+                spec:
+                  serviceAccountName: arc-runner
+                  containers:
+                    - name: runner
+                      image: ghcr.io/actions/actions-runner:latest
+                      command: ["/home/runner/run.sh"]
+                      env:
+                        - name: PATH
+                          value: "/home/runner/externals/node20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                      resources:
+                        requests:
+                          cpu: "4"
+                          memory: "16Gi"
+                        limits:
+                          cpu: "8"
+                          memory: "32Gi"
+              {{- end }}
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{.namespace}}'

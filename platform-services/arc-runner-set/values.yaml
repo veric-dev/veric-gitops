@@ -2,9 +2,19 @@
 # applicationset.yaml in platform-arc/ instantiates this chart five
 # times — one per legacy pool label (`fast`, `release`, `build`,
 # `spot`, `self-hosted-linux-x64`) — overriding `runnerScaleSetName`
-# and `maxRunners` via helm.parameters at install time. Each release
-# gets its own namespace (`arc-runner-set-<pool>`) so the listener +
-# ephemeral runner pods are isolated per pool.
+# and `maxRunners` via the helm `values:` block at install time.
+# Each release gets its own namespace (`arc-runner-set-<pool>`) so
+# the listener + ephemeral runner pods are isolated per pool.
+#
+# Per-pool resource overrides: applicationset.yaml's `release` entry
+# inline-replaces the whole `gha-runner-scale-set.template` block to
+# bump runner pods to D8as_v5-equiv (4c/8c/16Gi/32Gi) because
+# veric-cli release-ship + duckdb-bundled needs that headroom (peak
+# link RSS ~8 GiB, 24+ codegen units). Helm merges scalars/maps but
+# REPLACES arrays — so overriding the runner container's `resources`
+# without overriding the rest of the array means rewriting the whole
+# `containers:` list per pool. The `release` pool does that; other
+# pools inherit this file unchanged.
 gha-runner-scale-set:
   # `runnerScaleSetName` and `maxRunners` are overridden per-pool by
   # platform-arc/applicationset.yaml; the values here are placeholders
@@ -66,7 +76,8 @@ gha-runner-scale-set:
             # "self-hosted runner lost communication with the server" because
             # the runner agent dies with the container. 16 GiB headroom matches
             # the prior Azure VMSS sizing (D4as_v5 = 16 GiB) so historically
-            # green workflows stay green.
+            # green workflows stay green. The `release` pool bumps further to
+            # D8as_v5 (32 GiB / 8 vCPU) — see applicationset.yaml.
             requests:
               cpu: "2"
               memory: "8Gi"
