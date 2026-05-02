@@ -60,9 +60,16 @@ gha-runner-scale-set:
             - name: PATH
               value: "/home/runner/externals/node20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
           resources:
+            # 4 GiB was too tight for release builds of veric-cli (duckdb-bundled
+            # peaks at ~8 GiB during link). Symptom: runner pod silently OOM-killed
+            # mid-`cargo build` and GitHub Actions reports
+            # "self-hosted runner lost communication with the server" because
+            # the runner agent dies with the container. 16 GiB headroom matches
+            # the prior Azure VMSS sizing (D4as_v5 = 16 GiB) so historically
+            # green workflows stay green.
             requests:
-              cpu: "1"
-              memory: "2Gi"
-            limits:
               cpu: "2"
-              memory: "4Gi"
+              memory: "8Gi"
+            limits:
+              cpu: "4"
+              memory: "16Gi"
