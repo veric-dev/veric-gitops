@@ -29,8 +29,11 @@ serviceAccount:
   roleArn: arn:aws:iam::155055143405:role/veric-app-telemetry-worker-veric-platform-nonprod
 
 externalSecrets:
+  enabled: true
   data:
-    - secretKey: DATABASE_URL
-      remoteKey: /veric/platform-nonprod/telemetry-worker/database-url
-    - secretKey: BETTER_AUTH_SECRET
-      remoteKey: /veric/platform-nonprod/telemetry-worker/better-auth-secret
+    - secretKey: SNOWFLAKE_INGEST_ACCOUNT
+      remoteKey: /veric/platform-nonprod/telemetry-worker/snowflake-account
+    - secretKey: SNOWFLAKE_INGEST_USER
+      remoteKey: /veric/platform-nonprod/telemetry-worker/snowflake-user
+    - secretKey: SNOWFLAKE_INGEST_PASSWORD
+      remoteKey: /veric/platform-nonprod/telemetry-worker/snowflake-password

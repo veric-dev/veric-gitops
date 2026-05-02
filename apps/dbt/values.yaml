@@ -23,9 +23,9 @@ env:
   DBT_PROFILES_DIR: /app/.dbt
 
 externalSecrets:
-  enabled: true
+  enabled: false
   refreshInterval: 1h
-  secretStore: foundation-sm
+  secretStore: aws-foundation-secretsmanager
   data: []
   # Suggested entries:
   #   - secretKey: SNOWFLAKE_ACCOUNT

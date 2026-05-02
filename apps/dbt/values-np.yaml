@@ -1,0 +1,34 @@
+enabled: false   # flip to true once the first image lands in ECR (§4.1c §4.12 blocker)
+schedule: "15 */6 * * *"   # every 6 hours
+
+env:
+  DBT_PROFILES_DIR: /app/.dbt
+  DBT_TARGET: nonprod
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+
+serviceAccount:
+  name: dbt
+  roleArn: arn:aws:iam::155055143405:role/veric-app-dbt-veric-platform-nonprod
+
+externalSecrets:
+  enabled: true
+  data:
+    - secretKey: SNOWFLAKE_ACCOUNT
+      remoteKey: /veric/platform-nonprod/dbt/snowflake-account
+    - secretKey: SNOWFLAKE_USER
+      remoteKey: /veric/platform-nonprod/dbt/snowflake-user
+    - secretKey: SNOWFLAKE_PASSWORD
+      remoteKey: /veric/platform-nonprod/dbt/snowflake-password
+    - secretKey: SNOWFLAKE_ROLE
+      remoteKey: /veric/platform-nonprod/dbt/snowflake-role
+    - secretKey: SNOWFLAKE_WAREHOUSE
+      remoteKey: /veric/platform-nonprod/dbt/snowflake-warehouse
+    - secretKey: SNOWFLAKE_DATABASE
+      remoteKey: /veric/platform-nonprod/dbt/snowflake-database
