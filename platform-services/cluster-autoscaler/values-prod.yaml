@@ -1,0 +1,7 @@
+cluster-autoscaler:
+  autoDiscovery:
+    clusterName: veric-platform-prod
+  rbac:
+    serviceAccount:
+      annotations:
+        eks.amazonaws.com/role-arn: "arn:aws:iam::514224758553:role/veric-cluster-autoscaler-veric-platform-prod"
