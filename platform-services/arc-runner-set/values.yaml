@@ -35,6 +35,15 @@ gha-runner-scale-set:
     type: ""   # empty = "kubernetes" mode disabled, plain pod mode
 
   template:
+    metadata:
+      # Karpenter v1 consolidation will evict an active runner pod as
+      # "Underutilized" mid-job, killing CI runs at random points.
+      # Observed 2026-05-02 across rust-ci on veric-engine / veric-ag /
+      # veric-cli (cancellations during apt-install / cargo build).
+      # `do-not-disrupt` opts the pod out of voluntary consolidation;
+      # it stays in place for the lifetime of its single ephemeral job.
+      annotations:
+        karpenter.sh/do-not-disrupt: "true"
     spec:
       serviceAccountName: arc-runner
       containers:
