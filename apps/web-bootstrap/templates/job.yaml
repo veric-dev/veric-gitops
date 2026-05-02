@@ -1,0 +1,149 @@
+{{- if .Values.enabled -}}
+{{- $env := required ".Values.environment must be set (e.g. platform-nonprod)" .Values.environment -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # Job name embeds the Helm chart revision so Argo recreates the Job
+  # on every chart bump (Job spec is immutable). Re-run by bumping
+  # Chart.yaml version or by `argocd app sync web-bootstrap-<env> --force`.
+  name: web-bootstrap-{{ .Chart.Version | replace "." "-" }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  ttlSecondsAfterFinished: {{ .Values.ttlSecondsAfterFinished }}
+  backoffLimit: {{ .Values.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        app: web-bootstrap
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      restartPolicy: OnFailure
+      containers:
+        - name: seeder
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: VERIC_ENVIRONMENT
+              value: {{ $env | quote }}
+            - name: AWS_REGION
+              value: {{ .Values.awsRegion | quote }}
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.awsRegion | quote }}
+            - name: FOUNDATION_SEEDER_ROLE_ARN
+              value: {{ .Values.foundationSeederRoleArn | quote }}
+            - name: SSM_ENDPOINT_PARAM
+              value: {{ required ".Values.rds.ssmEndpointParam" .Values.rds.ssmEndpointParam | quote }}
+            - name: SSM_PORT_PARAM
+              value: {{ required ".Values.rds.ssmPortParam"     .Values.rds.ssmPortParam     | quote }}
+            - name: SSM_DBNAME_PARAM
+              value: {{ required ".Values.rds.ssmDbNameParam"   .Values.rds.ssmDbNameParam   | quote }}
+            - name: RDS_MASTER_SECRET
+              value: {{ required ".Values.rds.masterSecretName" .Values.rds.masterSecretName | quote }}
+            - name: DATABASE_URL_KEY
+              value: {{ required ".Values.foundationSecrets.databaseUrlKey"      .Values.foundationSecrets.databaseUrlKey      | quote }}
+            - name: BETTER_AUTH_SECRET_KEY
+              value: {{ required ".Values.foundationSecrets.betterAuthSecretKey" .Values.foundationSecrets.betterAuthSecretKey | quote }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              # ---- prerequisites (Alpine 3.19 community has aws-cli + libpq) ----
+              apk add --no-cache --quiet aws-cli postgresql-client jq openssl >/dev/null
+
+              # ---- assume foundation chained-seeder role for SM writes ----
+              CREDS_JSON=$(aws sts assume-role \
+                --role-arn "$FOUNDATION_SEEDER_ROLE_ARN" \
+                --role-session-name "web-bootstrap-${VERIC_ENVIRONMENT}" \
+                --duration-seconds 900)
+              FND_AKID=$(printf '%s' "$CREDS_JSON" | jq -r .Credentials.AccessKeyId)
+              FND_SK=$(printf  '%s' "$CREDS_JSON" | jq -r .Credentials.SecretAccessKey)
+              FND_ST=$(printf  '%s' "$CREDS_JSON" | jq -r .Credentials.SessionToken)
+
+              fnd_aws() {
+                AWS_ACCESS_KEY_ID="$FND_AKID" \
+                AWS_SECRET_ACCESS_KEY="$FND_SK" \
+                AWS_SESSION_TOKEN="$FND_ST" \
+                aws "$@"
+              }
+
+              # ---- skip if already seeded (idempotency: don't rotate on
+              #      every Argo reconcile; rotations should be deliberate)
+              CURRENT_DB_URL=$(fnd_aws secretsmanager get-secret-value \
+                --secret-id "$DATABASE_URL_KEY" --query SecretString --output text 2>/dev/null || echo "")
+              case "$CURRENT_DB_URL" in
+                postgresql://veric_web:*)
+                  echo "$DATABASE_URL_KEY already seeded; skipping rotation"
+                  # Still ensure better-auth-secret if missing — handled at end.
+                  SKIP_DB=1
+                  ;;
+                *)
+                  SKIP_DB=0
+                  ;;
+              esac
+
+              if [ "$SKIP_DB" = "0" ]; then
+              # ---- read RDS connection details from cluster-local SSM/SM ----
+              RDS_HOST=$(aws ssm get-parameter --name "$SSM_ENDPOINT_PARAM"  --query 'Parameter.Value' --output text)
+              RDS_PORT=$(aws ssm get-parameter --name "$SSM_PORT_PARAM"      --query 'Parameter.Value' --output text)
+              RDS_DB=$(aws  ssm get-parameter --name "$SSM_DBNAME_PARAM"    --query 'Parameter.Value' --output text)
+              MASTER_JSON=$(aws secretsmanager get-secret-value \
+                --secret-id "$RDS_MASTER_SECRET" --query SecretString --output text)
+              RDS_USER=$(printf '%s' "$MASTER_JSON" | jq -r .username)
+              RDS_PASS=$(printf '%s' "$MASTER_JSON" | jq -r .password)
+
+              # ---- mint / rotate veric_web ----
+              WEB_PASS=$(openssl rand -base64 48 | tr -d '/+=\n' | head -c 32)
+              # CONNECT is granted to PUBLIC by default in postgres so we don't
+              # GRANT CONNECT here. EXECUTE format(...%L...) handles literal
+              # quoting of the password safely.
+              PGPASSWORD="$RDS_PASS" psql \
+                --no-psqlrc --quiet --set ON_ERROR_STOP=on \
+                -h "$RDS_HOST" -p "$RDS_PORT" -U "$RDS_USER" -d "$RDS_DB" \
+                -v "v_web_pass=$WEB_PASS" <<'SQL'
+              DO $do$
+              BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'veric_web') THEN
+                  EXECUTE format('CREATE ROLE veric_web LOGIN PASSWORD %L', :'v_web_pass');
+                ELSE
+                  EXECUTE format('ALTER  ROLE veric_web WITH LOGIN PASSWORD %L', :'v_web_pass');
+                END IF;
+              END
+              $do$;
+              GRANT USAGE, CREATE ON SCHEMA public TO veric_web;
+              GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA public TO veric_web;
+              GRANT USAGE, SELECT, UPDATE          ON ALL SEQUENCES IN SCHEMA public TO veric_web;
+              ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES    TO veric_web;
+              ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE          ON SEQUENCES TO veric_web;
+              SQL
+
+              # ---- compose + publish DATABASE_URL ----
+              # URL-encode password (mostly safe chars after our tr above, but be
+              # defensive: encode RFC-3986 reserved chars).
+              ENC_PASS=$(printf '%s' "$WEB_PASS" | jq -sRr @uri)
+              DATABASE_URL="postgresql://veric_web:${ENC_PASS}@${RDS_HOST}:${RDS_PORT}/${RDS_DB}?sslmode=require"
+              fnd_aws secretsmanager put-secret-value \
+                --secret-id "$DATABASE_URL_KEY" \
+                --secret-string "$DATABASE_URL" >/dev/null
+              echo "wrote $DATABASE_URL_KEY"
+              fi  # SKIP_DB
+
+              # ---- ensure BETTER_AUTH_SECRET is populated (one-shot, no rotation) ----
+              CURRENT=$(fnd_aws secretsmanager get-secret-value --secret-id "$BETTER_AUTH_SECRET_KEY" --query SecretString --output text 2>/dev/null || echo "")
+              case "$CURRENT" in
+                ""|*_placeholder*)
+                  BAS=$(openssl rand -base64 48 | tr -d '\n' | head -c 64)
+                  fnd_aws secretsmanager put-secret-value \
+                    --secret-id "$BETTER_AUTH_SECRET_KEY" \
+                    --secret-string "$BAS" >/dev/null
+                  echo "wrote $BETTER_AUTH_SECRET_KEY (initial)"
+                  ;;
+                *)
+                  echo "$BETTER_AUTH_SECRET_KEY already populated; leaving alone"
+                  ;;
+              esac
+
+              echo "web-bootstrap done for $VERIC_ENVIRONMENT"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+{{- end }}

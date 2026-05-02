@@ -1,0 +1,14 @@
+# platform-prod web bootstrap. See values-np.yaml header for ordering.
+enabled: true
+environment: platform-prod
+serviceAccount:
+  name: secrets-seeder
+  roleArn: arn:aws:iam::514224758553:role/veric-secrets-seeder-veric-platform-prod
+rds:
+  ssmEndpointParam: /veric/platform-prod/rds/endpoint
+  ssmPortParam:     /veric/platform-prod/rds/port
+  ssmDbNameParam:   /veric/platform-prod/rds/db-name
+  masterSecretName: /veric/platform-prod/rds/master
+foundationSecrets:
+  databaseUrlKey:      /veric/platform-prod/web/database-url
+  betterAuthSecretKey: /veric/platform-prod/web/better-auth-secret

@@ -1,0 +1,17 @@
+# platform-nonprod web bootstrap. Flip enabled=true once cluster's
+# secrets-seeder IRSA role is in place (tofu cluster-config §4.1) and the
+# foundation /veric/platform-nonprod/web/{database-url,better-auth-secret}
+# placeholders exist (foundation tofu §4.1).
+enabled: true
+environment: platform-nonprod
+serviceAccount:
+  name: secrets-seeder
+  roleArn: arn:aws:iam::155055143405:role/veric-secrets-seeder-veric-platform-nonprod
+rds:
+  ssmEndpointParam: /veric/platform-nonprod/rds/endpoint
+  ssmPortParam:     /veric/platform-nonprod/rds/port
+  ssmDbNameParam:   /veric/platform-nonprod/rds/db-name
+  masterSecretName: /veric/platform-nonprod/rds/master
+foundationSecrets:
+  databaseUrlKey:      /veric/platform-nonprod/web/database-url
+  betterAuthSecretKey: /veric/platform-nonprod/web/better-auth-secret

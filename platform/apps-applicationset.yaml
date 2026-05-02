@@ -28,6 +28,14 @@ spec:
                   namespace: platform-smoke
                   syncWave: "0"
                   imageList: ""
+                # web-bootstrap runs in the `bootstrap` namespace (created by
+                # the cluster-config tofu module) and seeds DATABASE_URL +
+                # BETTER_AUTH_SECRET into foundation SM. Must complete before
+                # web's ESO refreshes (web syncWave 10 ≫ this 9).
+                - app: web-bootstrap
+                  namespace: bootstrap
+                  syncWave: "9"
+                  imageList: ""
                 - app: web
                   namespace: web
                   syncWave: "10"

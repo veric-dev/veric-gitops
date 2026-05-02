@@ -1,0 +1,12 @@
+apiVersion: v2
+name: web-bootstrap
+description: |
+  One-shot bootstrap Job that mints the `veric_web` PostgreSQL user (using
+  the local RDS master secret), composes DATABASE_URL, and writes it back
+  to the foundation Secrets Manager key /veric/<env>/web/database-url.
+  Pattern documented in docs/current/platform-state-and-roadmap-2026-05-01.md
+  §4.1. Idempotent: re-running rotates the veric_web password and re-publishes
+  DATABASE_URL.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

@@ -1,0 +1,57 @@
+# Default-disabled. Per-env values flip enabled=true once the cluster's
+# seeder IRSA role exists and the foundation /veric/platform-<env>/web/*
+# placeholders are in place (foundation tofu §4.1 work).
+enabled: false
+
+# image. alpine:3.19 with `apk add aws-cli postgresql-client jq openssl-tools`
+# at runtime. Kept off ECR to stay independent of §4.12 BuildKit / image-push
+# pipelines.
+image:
+  repository: alpine
+  tag: "3.19"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  name: secrets-seeder
+  # Per-cluster IRSA role; chains into foundation veric-tenant-secrets-seeder.
+  # Override per-env (created by tofu cluster-config module §4.1).
+  roleArn: ""
+
+# foundation chained-seeder role. Same value across all platform envs.
+# Seeded into SSM by foundation tofu at /veric/foundation/iam/tenant-secrets-seeder-role-arn.
+foundationSeederRoleArn: arn:aws:iam::487542879472:role/veric-tenant-secrets-seeder
+
+# Environment slug — `platform-nonprod`, `platform-prod`. Must match the
+# foundation SM key prefix /veric/<env>/web/.
+environment: ""
+
+awsRegion: us-west-2
+
+# RDS PostgreSQL bootstrap params. Source-of-truth in cluster-local SSM/SM.
+rds:
+  ssmEndpointParam: ""   # /veric/<env>/rds/endpoint
+  ssmPortParam: ""       # /veric/<env>/rds/port
+  ssmDbNameParam: ""     # /veric/<env>/rds/db-name
+  masterSecretName: ""   # /veric/<env>/rds/master  (cluster-local AWS SM)
+
+# Foundation SM keys to populate. Static — fixed by foundation tofu §4.1.
+foundationSecrets:
+  databaseUrlKey: ""        # /veric/<env>/web/database-url
+  betterAuthSecretKey: ""   # /veric/<env>/web/better-auth-secret
+
+# TTL: clean up Job pods 24h after completion so re-syncs pick up changes.
+ttlSecondsAfterFinished: 86400
+
+# Backoff: this is a write-once Job; one retry is plenty. Failures should be
+# debugged manually rather than auto-retried (we don't want runaway password
+# rotations).
+backoffLimit: 1
+activeDeadlineSeconds: 600
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
