@@ -8,5 +8,5 @@ description: |
   §4.1. Idempotent: re-running rotates the veric_web password and re-publishes
   DATABASE_URL.
 type: application
-version: 0.1.3
+version: 0.1.4
 appVersion: "1.0.0"

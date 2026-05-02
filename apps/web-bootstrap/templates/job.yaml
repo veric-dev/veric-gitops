@@ -82,8 +82,11 @@ spec:
                   ;;
               esac
 
-              if [ "$SKIP_DB" = "0" ]; then
               # ---- read RDS connection details from cluster-local SSM/SM ----
+              # Done unconditionally (even when SKIP_DB=1) so the GRANT block
+              # below can re-apply privileges on every bootstrap run. Without
+              # that, a chart bump that adds new GRANTs wouldn't take effect
+              # on already-seeded clusters.
               RDS_HOST=$(aws ssm get-parameter --name "$SSM_ENDPOINT_PARAM"  --query 'Parameter.Value' --output text)
               RDS_PORT=$(aws ssm get-parameter --name "$SSM_PORT_PARAM"      --query 'Parameter.Value' --output text)
               RDS_DB=$(aws  ssm get-parameter --name "$SSM_DBNAME_PARAM"    --query 'Parameter.Value' --output text)
@@ -92,22 +95,19 @@ spec:
               RDS_USER=$(printf '%s' "$MASTER_JSON" | jq -r .username)
               RDS_PASS=$(printf '%s' "$MASTER_JSON" | jq -r .password)
 
-              # ---- mint / rotate veric_web ----
-              WEB_PASS=$(openssl rand -base64 48 | tr -d '/+=\n' | head -c 32)
-              # CONNECT is granted to PUBLIC by default in postgres so we don't
-              # GRANT CONNECT here. EXECUTE format(...%L...) handles literal
-              # quoting of the password safely. PGSSLMODE=require: RDS rejects
-              # plaintext (rds.force_ssl=1); without this, psql would auth-fail
-              # over SSL then retry plain and surface a misleading pg_hba error.
-              # psql's :'var' substitution doesn't reach into the body of a
-              # dollar-quoted DO block (it treats $do$...$do$ as opaque), so
-              # the password ALTER must live at the top level of the script.
-              # Idempotency: CREATE ROLE without a password (in DO/IF), then
-              # always-ALTER the password outside the DO.
+              # ---- ensure veric_web role + grants (always, idempotent) ----
+              # PGSSLMODE=require: RDS rejects plaintext (rds.force_ssl=1);
+              # without this, psql would auth-fail over SSL then retry plain
+              # and surface a misleading pg_hba error.
+              # Drizzle's migrate() opens CREATE SCHEMA "drizzle" so veric_web
+              # needs CREATE on the database, not just on schema public.
+              # Re-running the chart on a chart bump must reapply privileges
+              # in case we add new grants — that's why this block isn't gated
+              # on SKIP_DB.
               PGSSLMODE=require PGPASSWORD="$RDS_PASS" psql \
                 --no-psqlrc --quiet --set ON_ERROR_STOP=on \
                 -h "$RDS_HOST" -p "$RDS_PORT" -U "$RDS_USER" -d "$RDS_DB" \
-                -v "v_web_pass=$WEB_PASS" -v "v_dbname=$RDS_DB" <<'SQL'
+                -v "v_dbname=$RDS_DB" <<'SQL'
               DO $do$
               BEGIN
                 IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'veric_web') THEN
@@ -115,7 +115,6 @@ spec:
                 END IF;
               END
               $do$;
-              ALTER ROLE veric_web WITH LOGIN PASSWORD :'v_web_pass';
               GRANT CONNECT, CREATE ON DATABASE :"v_dbname" TO veric_web;
               GRANT USAGE, CREATE ON SCHEMA public TO veric_web;
               GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA public TO veric_web;
@@ -124,15 +123,48 @@ spec:
               ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE          ON SEQUENCES TO veric_web;
               SQL
 
-              # ---- compose + publish DATABASE_URL ----
-              # URL-encode password (mostly safe chars after our tr above, but be
-              # defensive: encode RFC-3986 reserved chars).
-              ENC_PASS=$(printf '%s' "$WEB_PASS" | jq -sRr @uri)
-              DATABASE_URL="postgresql://veric_web:${ENC_PASS}@${RDS_HOST}:${RDS_PORT}/${RDS_DB}?sslmode=require"
-              fnd_aws secretsmanager put-secret-value \
-                --secret-id "$DATABASE_URL_KEY" \
-                --secret-string "$DATABASE_URL" >/dev/null
-              echo "wrote $DATABASE_URL_KEY"
+              # If a previous bootstrap (or manual debug) created the drizzle
+              # schema/tables under veric_admin, hand them off to veric_web so
+              # the migration runner can write its tracking table. No-op if
+              # the schema doesn't exist yet (drizzle creates it on first run).
+              PGSSLMODE=require PGPASSWORD="$RDS_PASS" psql \
+                --no-psqlrc --quiet --set ON_ERROR_STOP=on \
+                -h "$RDS_HOST" -p "$RDS_PORT" -U "$RDS_USER" -d "$RDS_DB" <<'SQL'
+              DO $do$
+              BEGIN
+                IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'drizzle') THEN
+                  EXECUTE 'ALTER SCHEMA drizzle OWNER TO veric_web';
+                END IF;
+                IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'drizzle' AND table_name = '__drizzle_migrations') THEN
+                  EXECUTE 'ALTER TABLE drizzle.__drizzle_migrations OWNER TO veric_web';
+                END IF;
+                IF EXISTS (SELECT 1 FROM information_schema.sequences WHERE sequence_schema = 'drizzle' AND sequence_name = '__drizzle_migrations_id_seq') THEN
+                  EXECUTE 'ALTER SEQUENCE drizzle.__drizzle_migrations_id_seq OWNER TO veric_web';
+                END IF;
+              END
+              $do$;
+              SQL
+
+              if [ "$SKIP_DB" = "0" ]; then
+                # ---- mint + rotate veric_web password, publish DATABASE_URL ----
+                # psql's :'var' substitution doesn't reach into the body of a
+                # dollar-quoted DO block (it treats $do$...$do$ as opaque),
+                # so the password ALTER lives at the top level.
+                WEB_PASS=$(openssl rand -base64 48 | tr -d '/+=\n' | head -c 32)
+                PGSSLMODE=require PGPASSWORD="$RDS_PASS" psql \
+                  --no-psqlrc --quiet --set ON_ERROR_STOP=on \
+                  -h "$RDS_HOST" -p "$RDS_PORT" -U "$RDS_USER" -d "$RDS_DB" \
+                  -v "v_web_pass=$WEB_PASS" <<'SQL'
+                ALTER ROLE veric_web WITH LOGIN PASSWORD :'v_web_pass';
+              SQL
+                # URL-encode password (mostly safe chars after our tr above,
+                # but be defensive: encode RFC-3986 reserved chars).
+                ENC_PASS=$(printf '%s' "$WEB_PASS" | jq -sRr @uri)
+                DATABASE_URL="postgresql://veric_web:${ENC_PASS}@${RDS_HOST}:${RDS_PORT}/${RDS_DB}?sslmode=require"
+                fnd_aws secretsmanager put-secret-value \
+                  --secret-id "$DATABASE_URL_KEY" \
+                  --secret-string "$DATABASE_URL" >/dev/null
+                echo "wrote $DATABASE_URL_KEY"
               fi  # SKIP_DB
 
               # ---- ensure BETTER_AUTH_SECRET is populated (one-shot, no rotation) ----
