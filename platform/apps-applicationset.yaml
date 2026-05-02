@@ -47,7 +47,7 @@ spec:
                 - app: dbt
                   namespace: dbt
                   syncWave: "12"
-                  imageList: ""
+                  imageList: "dbt=487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-dbt"
           - clusters:
               selector:
                 matchLabels:
@@ -74,6 +74,10 @@ spec:
         argocd-image-updater.argoproj.io/worker.allow-tags: 'regexp:^sha-[0-9a-f]{12}$'
         argocd-image-updater.argoproj.io/worker.helm.image-name: image.repository
         argocd-image-updater.argoproj.io/worker.helm.image-tag: image.tag
+        argocd-image-updater.argoproj.io/dbt.update-strategy: latest
+        argocd-image-updater.argoproj.io/dbt.allow-tags: 'regexp:^sha-[0-9a-f]{12}$'
+        argocd-image-updater.argoproj.io/dbt.helm.image-name: image.repository
+        argocd-image-updater.argoproj.io/dbt.helm.image-tag: image.tag
         argocd-image-updater.argoproj.io/write-back-method: argocd
     spec:
       project: default

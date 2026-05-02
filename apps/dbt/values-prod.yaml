@@ -1,4 +1,4 @@
-enabled: false   # flip to true once the first image lands in ECR (§4.1c §4.12 blocker)
+enabled: true
 schedule: "15 */2 * * *"   # every 2 hours
 
 env:
