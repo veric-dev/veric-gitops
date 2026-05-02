@@ -1,0 +1,49 @@
+# Per-PR preview overrides.
+#
+# Layered on top of values.yaml (NOT values-pdev.yaml). Each preview deploys
+# into a dedicated `pr-<n>` namespace on platform-dev, hits the pdev RDS
+# (read+write — fine pre-launch, revisit when we have real customer data),
+# and uses the pdev wildcard cert + IRSA web role.
+
+enabled: true
+
+# Cheap: 1 replica, no HPA, no PDB.
+autoscaling:
+  enabled: false
+replicaCount: 1
+pdb:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# image.tag, ingress.hostname overridden by the ApplicationSet template.
+ingress:
+  enabled: true
+  className: alb
+  certificateArn: arn:aws:acm:us-west-2:381234267633:certificate/6699dbb0-896c-4552-8ed0-c57432f58b38
+  scheme: internet-facing
+
+env:
+  NODE_ENV: production
+  NEXT_RUNTIME: nodejs
+  DATABASE_SSL: require
+  DRIZZLE_MIGRATIONS_FOLDER: /app/packages/infrastructure/drizzle
+
+externalSecrets:
+  enabled: false
+
+rds:
+  ssmEndpointParam: /veric/platform-dev/rds/endpoint
+  ssmPortParam: /veric/platform-dev/rds/port
+  ssmDbNameParam: /veric/platform-dev/rds/db-name
+  masterSecretName: /veric/platform-dev/rds/master
+
+serviceAccount:
+  name: web
+  roleArn: arn:aws:iam::381234267633:role/veric-app-web-veric-platform-dev

@@ -1,0 +1,77 @@
+# PR previews for veric-saas — one Application per open PR, deployed to
+# platform-dev. Hostname is pr-<n>.pdev.veric.dev (uses the existing pdev
+# wildcard cert). Image tag = the PR head SHA, written to ECR by the
+# veric-saas docker build workflow on every push to a PR branch.
+#
+# Cleanup: ArgoCD's PR generator removes the Application as soon as the PR
+# closes/merges. `requeueAfterSeconds: 300` keeps the generator polling
+# every 5m so close events propagate quickly. Add the `preview` label on
+# any PR to opt in (filter below).
+#
+# Auth: GitHub PAT in argocd ns secret `github-pr-previews-token`, sourced
+# from foundation Secrets Manager via ESO (see templates/externalsecret).
+# Token needs `repo` scope (read PRs + commit statuses).
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: web-pr-previews
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - pullRequest:
+        github:
+          owner: veric-dev
+          repo: veric-saas
+          tokenRef:
+            secretName: github-pr-previews-token
+            key: token
+          # Only PRs labeled `preview` get a stack — keeps cost bounded
+          # and avoids spinning up previews for trivial dependabot PRs.
+          labels:
+            - preview
+        requeueAfterSeconds: 300
+  template:
+    metadata:
+      name: 'web-pr-{{.number}}'
+      labels:
+        veric.dev/preview: "true"
+        veric.dev/pr-number: '{{.number}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/veric-dev/veric-gitops
+        targetRevision: main
+        path: apps/web
+        helm:
+          ignoreMissingValueFiles: false
+          valueFiles:
+            - values.yaml
+            - values-pr.yaml
+          parameters:
+            - name: image.tag
+              value: 'sha-{{.head_sha}}'
+            - name: ingress.hostname
+              value: 'pr-{{.number}}.pdev.veric.dev'
+            - name: serviceAccount.name
+              value: 'web-pr-{{.number}}'
+      destination:
+        # pdev cluster — preview env shares the platform-dev account.
+        name: in-cluster
+        namespace: 'pr-{{.number}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 2m
