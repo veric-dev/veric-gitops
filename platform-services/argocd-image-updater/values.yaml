@@ -17,6 +17,20 @@ argocd-image-updater:
         insecure: no
         credentials: ext:/scripts/ecr-login.sh
         credsexpire: 11h
+  # IRSA-backed ECR login. Chart mounts these at /scripts; the registries
+  # entry above references `credentials: ext:/scripts/ecr-login.sh`.
+  authScripts:
+    enabled: true
+    scripts:
+      ecr-login.sh: |
+        #!/bin/sh
+        # awscli v2 wants to write ~/.aws on first run; container fs is RO,
+        # so point HOME at /tmp before invoking. Output is base64
+        # `AWS:<token>` which image-updater consumes as `user:pass`.
+        export HOME=/tmp
+        aws --region us-west-2 ecr get-authorization-token \
+          --output text --query 'authorizationData[].authorizationToken' \
+          | base64 -d
   # Tell image-updater to look for Applications in the `argocd` namespace
   # (Argo's namespace), not its own. Without this it scans only its own
   # namespace and finds zero apps. Pair with the cross-ns Role below.
