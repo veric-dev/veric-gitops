@@ -1,0 +1,3 @@
+# See values-np.yaml for rationale — platform-smoke ingress only on pdev.
+ingress:
+  enabled: false

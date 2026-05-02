@@ -1,0 +1,8 @@
+# platform-smoke is a pdev-only sanity check (the hardcoded
+# smoke.pdev.veric.dev cert in values.yaml is in the platform-dev
+# account). On np/prod we still let the Deployment run as a "can the
+# cluster pull/schedule a public image" probe but skip the ingress so
+# we don't churn ALB controller errors against a cert that doesn't
+# resolve in this account.
+ingress:
+  enabled: false
