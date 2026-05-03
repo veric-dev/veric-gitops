@@ -19,3 +19,16 @@ spec:
     Environment: {{ .Values.nodeClass.clusterName | quote }}
     Owner: platform-eng
     ManagedBy: karpenter
+  # AL2023 default root volume is 20Gi — too small for ARC runner pods that
+  # cache restore Cargo target dirs (~6.8Gi observed) plus the runner image
+  # (~640Mi). kubelet evicts the runner mid-job under disk pressure
+  # ("low on resource: ephemeral-storage", observed 2026-05-02 across
+  # rust-ci on engine/cli/ag). 100Gi gives headroom for parallel shards
+  # and the 1Gi nextest archive without eviction churn.
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 100Gi
+        volumeType: gp3
+        encrypted: true
+        deleteOnTermination: true

@@ -90,6 +90,16 @@ gha-runner-scale-set:
             requests:
               cpu: "2"
               memory: "8Gi"
+              # Cargo target dirs + nextest archive + runner image easily hit
+              # 6-10Gi during a build. Without a request, kubelet treats
+              # ephemeral-storage as best-effort and evicts the runner mid-job
+              # under disk pressure (observed 2026-05-02 across rust-ci on
+              # engine/cli/ag — "low on resource: ephemeral-storage" with
+              # the runner using 6.8Gi). Pair with the EC2NodeClass 100Gi
+              # root volume so Karpenter sizes nodes that can hold one of
+              # these per slot with headroom for kubelet/system overhead.
+              ephemeral-storage: "20Gi"
             limits:
               cpu: "4"
               memory: "16Gi"
+              ephemeral-storage: "40Gi"
