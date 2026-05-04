@@ -2,8 +2,11 @@
 enabled: true
 
 image:
-  # Pinned manually pending image-updater fix (#76 deleted; see project memory).
-  tag: sha-4775dc4157c7
+  # Initial tag = `main` (floating). argocd-image-updater pins this to a
+  # specific sha-XXX on its next poll cycle and writes the override into
+  # the Application's helm parameters (allow-tags regexp filters anything
+  # but `sha-[0-9a-f]{12}`).
+  tag: main
 
 ingress:
   hostname: app.prod.veric.dev
