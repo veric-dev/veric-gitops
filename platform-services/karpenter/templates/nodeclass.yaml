@@ -7,12 +7,20 @@ spec:
   role: {{ .Values.nodeClass.nodeRoleName | quote }}
   amiSelectorTerms:
     - alias: al2023@latest
+  # Discovery via raw IDs (set per env in values-{pdev,np,prod}.yaml).
+  # The prior tag-based discovery lost a fight with the upstream VPC + EKS
+  # modules' `tags` attributes during a 2026-05-04 platform-dev tofu apply,
+  # silently stripping `karpenter.sh/discovery` and breaking node
+  # provisioning. IDs are immutable once subnets/SGs are created and
+  # cannot be reverted by an out-of-band tag rewrite.
   subnetSelectorTerms:
-    - tags:
-        karpenter.sh/discovery: {{ .Values.nodeClass.clusterName | quote }}
+{{- range .Values.nodeClass.subnetIds }}
+    - id: {{ . | quote }}
+{{- end }}
   securityGroupSelectorTerms:
-    - tags:
-        karpenter.sh/discovery: {{ .Values.nodeClass.clusterName | quote }}
+{{- range .Values.nodeClass.securityGroupIds }}
+    - id: {{ . | quote }}
+{{- end }}
   tags:
     karpenter.sh/discovery: {{ .Values.nodeClass.clusterName | quote }}
     Project: veric-platform

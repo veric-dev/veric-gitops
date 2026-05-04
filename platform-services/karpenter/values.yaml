@@ -27,6 +27,9 @@ nodeClass:
   amiFamily: AL2023
   clusterName: "" # set per env
   nodeRoleName: "" # set per env
+  # Set per env. Raw subnet/SG IDs (not tags) — see values-pdev.yaml.
+  subnetIds: []
+  securityGroupIds: []
 
 nodePool:
   capacityTypes:

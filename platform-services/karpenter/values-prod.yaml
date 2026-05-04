@@ -10,6 +10,16 @@ karpenter:
 nodeClass:
   clusterName: veric-platform-prod
   nodeRoleName: veric-karpenter-node-veric-platform-prod
+  # Discovery via raw IDs, not tags — see values-pdev.yaml for the
+  # rationale (tag-based discovery lost a fight with the upstream VPC + EKS
+  # modules' `tags` attributes during a 2026-05-04 apply on pdev).
+  subnetIds:
+    - subnet-061fc86260f8e0447
+    - subnet-0c975a583a3de1e02
+    - subnet-06c8fa9e8a4e981f9
+  securityGroupIds:
+    - sg-017838965a419bb89
+    - sg-0d511cb5a5376bef9
 
 nodePool:
   cpuLimit: "500"

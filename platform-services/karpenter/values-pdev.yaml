@@ -9,3 +9,15 @@ karpenter:
 nodeClass:
   clusterName: veric-platform-dev
   nodeRoleName: veric-karpenter-node-veric-platform-dev
+  # Discovery via raw IDs, not tags — see veric-aws/infra/tofu/modules/
+  # platform/karpenter/main.tf "Discovery via IDs" comment for the rationale
+  # (the prior tag-based approach lost a fight with the upstream VPC + EKS
+  # modules' `tags` attributes during a 2026-05-04 apply, stripping
+  # `karpenter.sh/discovery` and breaking node provisioning).
+  subnetIds:
+    - subnet-0292dfc1dc6f6f98c
+    - subnet-0a43ae6e47664a1d8
+    - subnet-0aab280d65d712fcd
+  securityGroupIds:
+    - sg-006e036443a131846
+    - sg-0f9d13fa8ee0b1338
