@@ -7,10 +7,12 @@ image:
   # Foundation ECR (487542879472) — built by veric-saas/.github/workflows/
   # deploy-eks-dbt.yml, pulled cross-account by platform-{nonprod,prod}.
   # Repo is imageTagMutability: IMMUTABLE, so floating-tag patterns
-  # (`:main`, `:latest`) don't work — pin the sha here and bump per
-  # promotion until argocd-image-updater is repaired (currently broken
-  # on np/prod: server endpoint defaults to its own namespace and can't
-  # reach argocd-server.argocd).
+  # (`:main`, `:latest`) don't work — sha-XXXX only.
+  # On np + pdev: argocd-image-updater overrides this tag to the latest
+  # main sha within ~2 min of an ECR push.
+  # On prod: image-updater is disabled (Option β; see
+  # platform/apps-applicationset.yaml). This `tag` is the live prod
+  # version — bump via promote-prod.yml or hand-edit + PR.
   repository: 487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-dbt
   tag: sha-9913adece943
   pullPolicy: IfNotPresent

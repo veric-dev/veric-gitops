@@ -1,8 +1,12 @@
 enabled: true
 
 image:
-  # Pinned manually pending image-updater fix (#76 deleted; see project memory).
-  tag: sha-b2a63bb013f3
+  # Prod is gitops-pinned (Option β — image-updater is disabled on env=prod
+  # in platform/apps-applicationset.yaml). To promote a new build:
+  # 1. Confirm the sha is healthy on np + pdev (auto-tracked).
+  # 2. Bump this `tag` (use .github/workflows/promote-prod.yml or hand-edit + PR).
+  # 3. Rollback = `git revert` the bump commit.
+  tag: sha-4775dc4157c7
 
 replicaCount: 3
 

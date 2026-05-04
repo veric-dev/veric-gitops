@@ -1,0 +1,107 @@
+name: promote-prod
+
+# Manual prod-tag bump — Option β (see platform/apps-applicationset.yaml).
+# np + pdev auto-track main via argocd-image-updater. Prod is gated:
+# this workflow is the bot-PR path. The plain hand-edit path is also
+# fine (edit apps/<app>/values-prod.yaml, open PR, merge).
+#
+# After merge, ArgoCD reconciles the prod Application within ~3 min and
+# Argo Rollouts steps the canary (25→50→75→100, 60s pauses).
+# Rollback = `git revert` of the bump commit.
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "Which app to promote"
+        required: true
+        type: choice
+        options:
+          - web
+          - telemetry-worker
+          - dbt
+      sha:
+        description: "Image sha (12 hex chars, no `sha-` prefix)"
+        required: true
+        type: string
+      reason:
+        description: "Why this promotion (commit subject, ticket, etc.)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate sha
+        run: |
+          if ! [[ "${{ inputs.sha }}" =~ ^[0-9a-f]{12}$ ]]; then
+            echo "::error::sha must be exactly 12 hex chars"
+            exit 1
+          fi
+
+      - name: Verify image exists in ECR
+        env:
+          AWS_REGION: us-west-2
+        run: |
+          # Public probe — no AWS creds needed for "manifest exists" since
+          # we only need a 401 (image private) vs 404 (image missing). If
+          # this turns flaky, swap for a configure-aws-credentials step
+          # using a read-only ECR role.
+          case "${{ inputs.app }}" in
+            web) repo=veric-saas ;;
+            telemetry-worker) repo=veric-saas-worker ;;
+            dbt) repo=veric-dbt ;;
+          esac
+          url="https://487542879472.dkr.ecr.us-west-2.amazonaws.com/v2/${repo}/manifests/sha-${{ inputs.sha }}"
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)
+          # 401 = image exists but auth required (expected). 404 = missing.
+          if [[ "$code" == "404" ]]; then
+            echo "::error::sha-${{ inputs.sha }} not found in ECR repo $repo"
+            exit 1
+          fi
+          echo "ECR probe returned $code (expected 401/200) — image exists."
+
+      - name: Bump tag
+        run: |
+          set -euo pipefail
+          file="apps/${{ inputs.app }}/values-prod.yaml"
+          # dbt's tag lives in apps/dbt/values.yaml (no per-env override).
+          if [[ "${{ inputs.app }}" == "dbt" ]]; then
+            file="apps/dbt/values.yaml"
+          fi
+          sed -i.bak -E "s/^(\s*tag:\s*)sha-[0-9a-f]{12}/\1sha-${{ inputs.sha }}/" "$file"
+          rm -f "$file.bak"
+          if ! git diff --quiet -- "$file"; then
+            echo "Updated $file:"
+            git diff -- "$file"
+          else
+            echo "::error::no change made — file already on sha-${{ inputs.sha }}?"
+            exit 1
+          fi
+
+      - name: Open PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          branch="promote-prod/${{ inputs.app }}-${{ inputs.sha }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add -A
+          git commit -m "promote(prod/${{ inputs.app }}): sha-${{ inputs.sha }}" \
+                     -m "${{ inputs.reason }}"
+          git push -u origin "$branch"
+          gh pr create \
+            --title "promote(prod/${{ inputs.app }}): sha-${{ inputs.sha }}" \
+            --body "$(printf 'App: %s\nSha: sha-%s\nReason: %s\n\nMerge to roll prod. Rollback = revert this commit.\n' \
+                      "${{ inputs.app }}" "${{ inputs.sha }}" "${{ inputs.reason }}")" \
+            --base main \
+            --label promote-prod

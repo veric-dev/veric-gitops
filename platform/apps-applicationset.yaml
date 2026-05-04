@@ -65,14 +65,19 @@ spec:
       name: '{{.app}}-{{index .metadata.labels "platform.veric.dev/environment-short"}}'
       annotations:
         argocd.argoproj.io/sync-wave: '{{.syncWave}}'
-        # argocd-image-updater wiring. The `image-list` value uses
-        # the alias=registry/repo form; per-image strategy + tag
-        # filter pin to `sha-XXXXXXXXXXXX` from deploy-eks-{web,worker}.yml.
-        # Write-back is `argocd` (Application annotation), not `git`,
-        # because pdev/nonprod auto-track main while prod pins to a
-        # PR-only path (see platform-services/argocd-image-updater).
-        # `imageList: ""` (platform-smoke, dbt) renders an empty
-        # annotation that image-updater ignores.
+        # argocd-image-updater wiring (Option β — non-prod auto, prod manual).
+        # Gated on env-short ∈ {pdev, nonprod}: every push to veric-saas/main
+        # is auto-promoted to np + pdev within ~2 minutes. Prod is
+        # deliberately excluded — `apps/web/values-prod.yaml` carries an
+        # explicit `image.tag: sha-XXXXXXXXXXXX` and is bumped by
+        # `.github/workflows/promote-prod.yml` (workflow_dispatch) or hand
+        # edit + PR. Rollback = revert the bump commit. Rationale: avoids
+        # silent prod rollouts, keeps the prod tag visible in git history,
+        # and means a bad image lands in np first where the auto-canary +
+        # smoke catches it before a human flips prod.
+        # `imageList: ""` (platform-smoke, web-bootstrap) renders an empty
+        # annotation that image-updater ignores even on non-prod.
+        {{- if ne (index .metadata.labels "platform.veric.dev/environment-short") "prod" }}
         argocd-image-updater.argoproj.io/image-list: '{{.imageList}}'
         argocd-image-updater.argoproj.io/web.update-strategy: latest
         argocd-image-updater.argoproj.io/web.allow-tags: 'regexp:^sha-[0-9a-f]{12}$'
@@ -87,6 +92,7 @@ spec:
         argocd-image-updater.argoproj.io/dbt.helm.image-name: image.repository
         argocd-image-updater.argoproj.io/dbt.helm.image-tag: image.tag
         argocd-image-updater.argoproj.io/write-back-method: argocd
+        {{- end }}
     spec:
       project: default
       source:
