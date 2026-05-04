@@ -66,19 +66,23 @@ spec:
       annotations:
         argocd.argoproj.io/sync-wave: '{{.syncWave}}'
         # argocd-image-updater wiring (Option β — non-prod auto, prod manual).
-        # Gated on env-short ∈ {pdev, nonprod}: every push to veric-saas/main
-        # is auto-promoted to np + pdev within ~2 minutes. Prod is
-        # deliberately excluded — `apps/web/values-prod.yaml` carries an
-        # explicit `image.tag: sha-XXXXXXXXXXXX` and is bumped by
-        # `.github/workflows/promote-prod.yml` (workflow_dispatch) or hand
-        # edit + PR. Rollback = revert the bump commit. Rationale: avoids
-        # silent prod rollouts, keeps the prod tag visible in git history,
-        # and means a bad image lands in np first where the auto-canary +
-        # smoke catches it before a human flips prod.
-        # `imageList: ""` (platform-smoke, web-bootstrap) renders an empty
-        # annotation that image-updater ignores even on non-prod.
-        {{- if ne (index .metadata.labels "platform.veric.dev/environment-short") "prod" }}
-        argocd-image-updater.argoproj.io/image-list: '{{.imageList}}'
+        # The other annotations stay templated but are inert when image-list
+        # is empty: image-updater skips any Application whose image-list
+        # doesn't name an image. On prod, the inline ternary forces the
+        # image-list to "", so all the alias-prefixed config below has no
+        # subject and nothing gets promoted. On np + pdev, image-list is
+        # the real `web=...` / `worker=...` / `dbt=...` value and every
+        # push to veric-saas/main is auto-promoted within ~2 minutes.
+        #
+        # Prod promotion is deliberately explicit: edit
+        # `apps/<app>/values-prod.yaml` (or `apps/dbt/values.yaml`) and
+        # merge to main. `.github/workflows/promote-prod.yml` is the
+        # workflow_dispatch helper. Rollback = revert the bump commit.
+        # Rationale: avoids silent prod rollouts, keeps the prod tag
+        # visible in git history, and means a bad image lands in np
+        # first where the canary + smoke catches it before a human
+        # flips prod.
+        argocd-image-updater.argoproj.io/image-list: '{{ if eq (index .metadata.labels "platform.veric.dev/environment-short") "prod" }}{{ else }}{{ .imageList }}{{ end }}'
         argocd-image-updater.argoproj.io/web.update-strategy: latest
         argocd-image-updater.argoproj.io/web.allow-tags: 'regexp:^sha-[0-9a-f]{12}$'
         argocd-image-updater.argoproj.io/web.helm.image-name: image.repository
@@ -92,7 +96,6 @@ spec:
         argocd-image-updater.argoproj.io/dbt.helm.image-name: image.repository
         argocd-image-updater.argoproj.io/dbt.helm.image-tag: image.tag
         argocd-image-updater.argoproj.io/write-back-method: argocd
-        {{- end }}
     spec:
       project: default
       source:
