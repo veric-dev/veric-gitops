@@ -3,7 +3,7 @@ enabled: true
 
 image:
   # Pinned manually pending image-updater fix (#76 deleted; see project memory).
-  tag: sha-b2a63bb013f3
+  tag: sha-4775dc4157c7
 
 ingress:
   hostname: app.prod.veric.dev
