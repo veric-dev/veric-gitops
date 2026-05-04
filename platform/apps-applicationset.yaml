@@ -16,6 +16,14 @@ metadata:
 spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
+  # Preserve argocd-image-updater's helm parameter overrides
+  # (image.repository / image.tag) across ApplicationSet reconciles.
+  # Without this, the controller rewrites Application.spec on every
+  # cycle, dropping the parameters block image-updater wrote, and the
+  # next reconcile reverts pods to the gitops-pinned tag.
+  ignoreApplicationDifferences:
+    - jsonPointers:
+        - /spec/source/helm/parameters
   generators:
     - matrix:
         generators:
