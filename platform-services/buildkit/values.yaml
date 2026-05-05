@@ -37,13 +37,19 @@ securityContext:
 service:
   port: 1234
 
+# Sized to keep buildkit off the legacy t4g.medium MNG (2 cpu / 4 GiB).
+# A 2c request forces Karpenter to provision a real m/c/r 5/6/7 instance
+# instead of the pod cohabiting with system pods on a 2-cpu node and
+# starving any concurrent build (observed 2026-05-05: dbt arm64 leg
+# crawled for 26 min on t4g.medium-hosted buildkit, then completed in
+# 42s after the pod was rescheduled to an m7g.2xlarge).
 resources:
   requests:
-    cpu: 500m
-    memory: 1Gi
+    cpu: 2
+    memory: 4Gi
   limits:
-    cpu: 4
-    memory: 8Gi
+    cpu: 6
+    memory: 12Gi
 
 # emptyDir cache for first cut — survives pod restarts only as long as
 # the node doesn't recycle. Move to a PVC once we know the working set
