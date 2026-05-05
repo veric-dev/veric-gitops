@@ -38,6 +38,8 @@ spec:
             poolName: ""
             maxRunners: ""
             bigPool: "false"
+            nameSuffix: ""
+            nodeArch: ""
           # Five ephemeral runner-sets, one per legacy pool label.
           # All use the same arc-runner-set chart with helm parameter
           # overrides for `runnerScaleSetName` and `maxRunners`.
@@ -61,6 +63,8 @@ spec:
             poolName: fast
             maxRunners: "10"
             bigPool: "false"
+            nameSuffix: ""
+            nodeArch: ""
           - service: arc-runner-set-release
             chart: arc-runner-set
             namespace: arc-runner-set-release
@@ -68,6 +72,8 @@ spec:
             poolName: release
             maxRunners: "10"
             bigPool: "true"
+            nameSuffix: ""
+            nodeArch: ""
           - service: arc-runner-set-build
             chart: arc-runner-set
             namespace: arc-runner-set-build
@@ -75,6 +81,8 @@ spec:
             poolName: build
             maxRunners: "10"
             bigPool: "false"
+            nameSuffix: ""
+            nodeArch: ""
           - service: arc-runner-set-spot
             chart: arc-runner-set
             namespace: arc-runner-set-spot
@@ -82,6 +90,8 @@ spec:
             poolName: spot
             maxRunners: "10"
             bigPool: "false"
+            nameSuffix: ""
+            nodeArch: ""
           - service: arc-runner-set-self-hosted-linux-x64
             chart: arc-runner-set
             namespace: arc-runner-set-self-hosted-linux-x64
@@ -89,12 +99,23 @@ spec:
             poolName: self-hosted-linux-x64
             maxRunners: "10"
             bigPool: "false"
+            nameSuffix: ""
+            nodeArch: ""
           # BuildKit lives on the same cluster as the ARC runners so the
           # runner pods can resolve buildkit.buildkit.svc:1234 over cluster
           # DNS. The chart's values.yaml ignores poolName/maxRunners; they're
           # passed because the template's `helm.values` block always emits
           # them. See platform-services/buildkit/Chart.yaml for rationale on
           # the rootless pose + emptyDir cache.
+          # Two releases — federated-builders pattern (2026-05-05 arm64
+          # migration option A). The amd64 release stays as `buildkit`
+          # (unchanged service name, all existing workflows keep working);
+          # the arm64 sibling is `buildkit-arm64` and lives on Graviton
+          # nodes. CI workflows do per-arch native builds against each
+          # endpoint and stitch a multi-arch manifest with `crane index
+          # append`. Phase 4 of the migration deletes the amd64 entry and
+          # renames the arm64 release back to `buildkit` (no service name
+          # change for callers).
           - service: buildkit
             chart: buildkit
             namespace: buildkit
@@ -102,6 +123,17 @@ spec:
             poolName: ""
             maxRunners: ""
             bigPool: "false"
+            nameSuffix: ""
+            nodeArch: amd64
+          - service: buildkit-arm64
+            chart: buildkit
+            namespace: buildkit
+            syncWave: "1"
+            poolName: ""
+            maxRunners: ""
+            bigPool: "false"
+            nameSuffix: "-arm64"
+            nodeArch: arm64
   template:
     metadata:
       name: '{{.service}}'
@@ -131,6 +163,16 @@ spec:
           # changes the runner image, command, env, or PATH.
           values: |
             poolNamespace: {{.namespace}}
+            {{- if eq .chart "buildkit" }}
+            # buildkit chart: nameSuffix + nodeSelector for the
+            # federated-builders pattern (2026-05-05 arm64 migration). The
+            # arc-* charts ignore these keys, but goTemplate's missingkey
+            # =error means every generator entry must declare them — see
+            # the empty `nameSuffix:`/`nodeArch:` lines on each entry.
+            nameSuffix: "{{.nameSuffix}}"
+            nodeSelector:
+              kubernetes.io/arch: {{.nodeArch}}
+            {{- end }}
             gha-runner-scale-set:
               runnerScaleSetName: {{.poolName}}
               maxRunners: {{.maxRunners}}

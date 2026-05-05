@@ -1,5 +1,18 @@
 replicaCount: 1
 
+# Suffix appended to all resource names + the in-cluster Service. Empty
+# (the default) gives the original `buildkit` release. The arm64 sibling
+# release passes `nameSuffix: "-arm64"` so it lands as `buildkit-arm64`
+# in the same namespace without clashing — see platform-arc/applicationset
+# .yaml. Federated-builders pattern (2026-05-05 arm64 migration option A).
+nameSuffix: ""
+
+# Pin a release to a specific node arch via standard nodeSelector. The
+# amd64 release sets kubernetes.io/arch=amd64; the arm64 sibling release
+# sets kubernetes.io/arch=arm64. Empty (default) lets the scheduler place
+# anywhere — every active release should set this explicitly post-Phase-2b.
+nodeSelector: {}
+
 image:
   repository: moby/buildkit
   tag: v0.16.0-rootless

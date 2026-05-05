@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: buildkit
+  name: buildkit{{ .Values.nameSuffix }}
   labels:
-    app.kubernetes.io/name: buildkit
+    app.kubernetes.io/name: buildkit{{ .Values.nameSuffix }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: buildkit
+      app.kubernetes.io/name: buildkit{{ .Values.nameSuffix }}
   # Strategy: kill old before new. BuildKit holds in-flight builds and
   # the cache in emptyDir, both of which are tied to the pod lifetime
   # anyway — RollingUpdate would just spawn a second pod racing for the
@@ -18,7 +18,7 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: buildkit
+        app.kubernetes.io/name: buildkit{{ .Values.nameSuffix }}
       annotations:
         # See values.yaml — these are the rootless pose buildkit upstream
         # documents in their k8s example. Inline as pod annotations so the
@@ -27,6 +27,10 @@ spec:
         # is the path that works on every node we have).
         container.apparmor.security.beta.kubernetes.io/buildkit: unconfined
     spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
