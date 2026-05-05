@@ -10,6 +10,12 @@ image:
 ingress:
   hostname: app.pdev.veric.dev
   certificateArn: arn:aws:acm:us-west-2:381234267633:certificate/6699dbb0-896c-4552-8ed0-c57432f58b38
+  # 2026-05-05 cost batch (O10): join the shared pdev ALB group. argocd
+  # carries the same group.name (in tofu via the argocd module override
+  # in environments/platform-dev). When all 4 dev ingresses share the
+  # group, AWS LB Controller collapses them to one ALB. ~$53/mo saved.
+  groupName: platform-pdev
+  groupOrder: 30
 
 autoscaling:
   enabled: false

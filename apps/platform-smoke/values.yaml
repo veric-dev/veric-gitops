@@ -16,6 +16,10 @@ ingress:
   className: alb
   hostname: smoke.pdev.veric.dev
   certificateArn: "arn:aws:acm:us-west-2:381234267633:certificate/6699dbb0-896c-4552-8ed0-c57432f58b38"
+  # 2026-05-05 cost batch (O10): join the shared pdev ALB group. Default
+  # set in values.yaml because pdev-only chart (np/prod disable ingress).
+  groupName: platform-pdev
+  groupOrder: 50
 
 resources:
   limits:

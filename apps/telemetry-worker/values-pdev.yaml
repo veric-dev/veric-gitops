@@ -15,6 +15,9 @@ resources:
 ingress:
   hostname: telemetry.pdev.veric.dev
   certificateArn: arn:aws:acm:us-west-2:381234267633:certificate/6699dbb0-896c-4552-8ed0-c57432f58b38
+  # 2026-05-05 cost batch (O10): join the shared pdev ALB group.
+  groupName: platform-pdev
+  groupOrder: 40
 externalSecrets:
   # Disabled on pdev: no Snowflake creds plumbed yet, and the worker
   # lazy-builds its publisher per-request, so /healthz works without env.
