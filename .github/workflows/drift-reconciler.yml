@@ -64,34 +64,7 @@ jobs:
           role-to-assume: ${{ env.ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Find latest soaked ECR tag
-        id: latest
-        run: |
-          set -euo pipefail
-          soak_hours="${{ inputs.soak_hours || '24' }}"
-          cutoff=$(date -u -d "${soak_hours} hours ago" +%Y-%m-%dT%H:%M:%S)
-          echo "Soak cutoff: $cutoff (>= ${soak_hours}h old)"
-
-          # Newest sha-tagged image whose imagePushedAt is older than cutoff.
-          # imageTags filtered to sha-* on the JMESPath side so we ignore
-          # incidental tags (latest, branch markers, etc.).
-          latest_tag=$(aws ecr describe-images \
-            --repository-name "${{ matrix.ecr_repo }}" \
-            --region "$AWS_REGION" \
-            --output json \
-            --query "reverse(sort_by(imageDetails[?imagePushedAt<\`${cutoff}\` && imageTags != null], &imagePushedAt))[].imageTags[?starts_with(@, 'sha-')] | [0][0]")
-
-          # JMESPath returns "null" string when no match.
-          if [[ -z "$latest_tag" || "$latest_tag" == "null" ]]; then
-            echo "::warning::no soaked sha-* tag found in ${{ matrix.ecr_repo }} (>= ${soak_hours}h)"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "Latest soaked tag: $latest_tag"
-          echo "tag=$latest_tag" >> "$GITHUB_OUTPUT"
-
       - name: Read currently-pinned tag
-        if: steps.latest.outputs.skip != 'true'
         id: current
         run: |
           set -euo pipefail
@@ -104,6 +77,51 @@ jobs:
           fi
           echo "Currently pinned: $current"
           echo "tag=$current" >> "$GITHUB_OUTPUT"
+
+      - name: Find latest soaked ECR tag (forward-only)
+        id: latest
+        run: |
+          set -euo pipefail
+          soak_hours="${{ inputs.soak_hours || '24' }}"
+          cutoff=$(date -u -d "${soak_hours} hours ago" +%Y-%m-%dT%H:%M:%S)
+          echo "Soak cutoff: $cutoff (>= ${soak_hours}h old)"
+
+          # Pull all sha-* images sorted newest-first, with their pushed-at
+          # timestamps. Single AWS call; sorting and forward-only check
+          # happen locally so we can compare candidate vs. currently-pinned
+          # pushed-at and never suggest a backward roll.
+          aws ecr describe-images \
+            --repository-name "${{ matrix.ecr_repo }}" \
+            --region "$AWS_REGION" \
+            --output json \
+            --query 'imageDetails[?imageTags != null].{pushed: imagePushedAt, tags: imageTags}' \
+            > /tmp/ecr.json
+
+          current_tag="${{ steps.current.outputs.tag }}"
+
+          # Pushed-at of the currently-pinned image. If the pinned image is
+          # missing from ECR (manually deleted? lifecycle expiry?), fall
+          # back to "ancient" so any soaked tag is fair game.
+          current_pushed=$(jq -r --arg t "$current_tag" '
+            map(select(.tags | index($t)))[0].pushed // "1970-01-01T00:00:00Z"
+          ' /tmp/ecr.json)
+          echo "Currently-pinned pushed-at: $current_pushed"
+
+          # Latest soaked sha-* tag that's strictly newer than the
+          # currently-pinned image. Newest-first sort + first match.
+          latest_tag=$(jq -r --arg cutoff "$cutoff" --arg cur "$current_pushed" '
+            map(select(.pushed < $cutoff and .pushed > $cur))
+            | sort_by(.pushed) | reverse
+            | .[0].tags // [] | map(select(startswith("sha-")))[0] // empty
+          ' /tmp/ecr.json)
+
+          if [[ -z "$latest_tag" ]]; then
+            echo "No forward-progress soaked tag found — prod is current or ahead of soak window."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Latest soaked + forward tag: $latest_tag"
+          echo "tag=$latest_tag" >> "$GITHUB_OUTPUT"
 
       - name: Decide drift
         if: steps.latest.outputs.skip != 'true'
