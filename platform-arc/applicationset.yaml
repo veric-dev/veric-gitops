@@ -107,15 +107,12 @@ spec:
           # passed because the template's `helm.values` block always emits
           # them. See platform-services/buildkit/Chart.yaml for rationale on
           # the rootless pose + emptyDir cache.
-          # Two releases — federated-builders pattern (2026-05-05 arm64
-          # migration option A). The amd64 release stays as `buildkit`
-          # (unchanged service name, all existing workflows keep working);
-          # the arm64 sibling is `buildkit-arm64` and lives on Graviton
-          # nodes. CI workflows do per-arch native builds against each
-          # endpoint and stitch a multi-arch manifest with `crane index
-          # append`. Phase 4 of the migration deletes the amd64 entry and
-          # renames the arm64 release back to `buildkit` (no service name
-          # change for callers).
+          # Phase 4 of the 2026-05-05 arm64 migration: collapsed back to a
+          # single `buildkit` release pinned to arm64 nodes (the federated
+          # amd64 sibling has been deleted now that all CI workflows build
+          # linux/arm64 only). Service name `buildkit.buildkit.svc:1234`
+          # is unchanged from the pre-federation original — callers keep
+          # the same endpoint across the whole migration.
           - service: buildkit
             chart: buildkit
             namespace: buildkit
@@ -124,15 +121,6 @@ spec:
             maxRunners: ""
             bigPool: "false"
             nameSuffix: ""
-            nodeArch: amd64
-          - service: buildkit-arm64
-            chart: buildkit
-            namespace: buildkit
-            syncWave: "1"
-            poolName: ""
-            maxRunners: ""
-            bigPool: "false"
-            nameSuffix: "-arm64"
             nodeArch: arm64
   template:
     metadata:
