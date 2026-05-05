@@ -39,6 +39,10 @@ nodePool:
   # so Karpenter can provision arm64 capacity once it's needed; the
   # existing amd64-only MNGs still carry the workload until Phase 3
   # drains them. Phase 5 collapses this back to arm64-only.
+  # Phase 5 patch: drop the `- amd64` line below once every cluster
+  # has zero amd64 nodes (verify with `kubectl get nodes -L kubernetes.io/arch`
+  # against pdev, np, prod). Karpenter then refuses to provision new
+  # amd64 nodes regardless of pod arch hints.
   archs:
     - amd64
     - arm64
