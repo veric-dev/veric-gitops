@@ -19,3 +19,9 @@ nodeClass:
   securityGroupIds:
     - sg-0f071cc37372f43e5
     - sg-0a228c280bfa515b9
+
+# Phase 6c (2026-05-05 arm64 migration): nonprod narrowed to arm64-only
+# alongside zeroing the amd64 MNG sizes in platform-nonprod/main.tf.
+nodePool:
+  archs:
+    - arm64
