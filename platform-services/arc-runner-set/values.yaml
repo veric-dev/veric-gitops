@@ -56,6 +56,15 @@ gha-runner-scale-set:
         karpenter.sh/do-not-disrupt: "true"
     spec:
       serviceAccountName: arc-runner
+      # Pin runner pods to amd64 nodes — the runner image is amd64-only
+      # until the federated-builders multi-arch rebuild lands and
+      # propagates (2026-05-05 arm64 migration). Without this pin the
+      # release pool's 4c/16Gi requests landed on m7g.2xlarge (arm64)
+      # and the amd64 binary crashed at startup, marking 10/10
+      # ephemeral runners Failed and stalling all release-pool jobs.
+      # Drop this nodeSelector once `arc-runner:latest` is multi-arch.
+      nodeSelector:
+        kubernetes.io/arch: amd64
       containers:
         - name: runner
           # Foundation-baked runner image: upstream actions-runner +

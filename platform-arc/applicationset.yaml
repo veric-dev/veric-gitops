@@ -183,6 +183,12 @@ spec:
                     karpenter.sh/do-not-disrupt: "true"
                 spec:
                   serviceAccountName: arc-runner
+                  # Pin to amd64 — the arc-runner image is amd64-only until the
+                  # federated-builders multi-arch rebuild lands. See
+                  # arc-runner-set/values.yaml for full rationale (release pool
+                  # ephemeral runners crash-looped on arm64 nodes 2026-05-05).
+                  nodeSelector:
+                    kubernetes.io/arch: amd64
                   containers:
                     - name: runner
                       image: 487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-foundation/arc-runner:latest
