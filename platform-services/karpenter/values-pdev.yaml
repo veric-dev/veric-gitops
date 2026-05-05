@@ -21,3 +21,12 @@ nodeClass:
   securityGroupIds:
     - sg-006e036443a131846
     - sg-0f9d13fa8ee0b1338
+
+# Phase 5 (2026-05-05 arm64 migration): pdev is the first cluster to
+# narrow Karpenter to arm64-only. Together with the platform-dev tofu
+# change zeroing the amd64 MNG sizes, this enforces "no amd64 nodes on
+# pdev". nonprod/prod still inherit the shared values.yaml `archs: [
+# amd64, arm64]` until Phase 6.
+nodePool:
+  archs:
+    - arm64
