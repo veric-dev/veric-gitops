@@ -14,7 +14,7 @@ image:
   # platform/apps-applicationset.yaml). This `tag` is the live prod
   # version — bump via promote-prod.yml or hand-edit + PR.
   repository: 487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-dbt
-  tag: sha-9913adece943
+  tag: sha-b26139455216
   pullPolicy: IfNotPresent
 
 # CronJob schedule — UTC. Default hourly @ :15 (off the hour to avoid
