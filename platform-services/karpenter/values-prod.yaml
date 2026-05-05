@@ -24,3 +24,7 @@ nodeClass:
 nodePool:
   cpuLimit: "500"
   memoryLimit: "500Gi"
+  # Phase 6c (2026-05-05 arm64 migration): prod narrowed to arm64-only
+  # alongside zeroing the amd64 MNG sizes in platform-prod/main.tf.
+  archs:
+    - arm64
