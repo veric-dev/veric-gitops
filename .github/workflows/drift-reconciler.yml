@@ -1,0 +1,169 @@
+name: drift-reconciler
+
+# Daily ECR drift detector — backstop for prod's Option β.
+#
+# Prod is gitops-pinned (image-updater is disabled per
+# platform/apps-applicationset.yaml). Promotion = promote-prod.yml or
+# hand-edit. Without a forcing function, prod silently lags ECR — we
+# discovered this on 2026-05-05 when prod was ~3 weeks behind on every
+# app SHA.
+#
+# This workflow runs daily, queries ECR for each prod app's latest tag
+# that has soaked >= SOAK_HOURS hours (default 24h, so np has had a day
+# to surface regressions), and opens a PR per app whenever the latest
+# soaked tag differs from the prod-pinned tag. PRs are idempotent (one
+# branch per app+sha pair) — re-runs on the same day no-op.
+#
+# A human still merges. This just removes the "nobody noticed" failure
+# mode.
+
+on:
+  schedule:
+    - cron: "0 9 * * *" # 09:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      soak_hours:
+        description: "Override soak window (hours an ECR tag must exist before promotion is suggested)"
+        required: false
+        default: "24"
+        type: string
+
+permissions:
+  id-token: write       # OIDC into AWS
+  contents: write       # push branches
+  pull-requests: write  # open PRs
+
+env:
+  AWS_REGION: us-west-2
+  ECR_ACCOUNT: "487542879472"
+  ROLE_ARN: "arn:aws:iam::487542879472:role/veric-gitops-ecr-reader"
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: web
+            ecr_repo: veric-saas
+            values_file: apps/web/values-prod.yaml
+          - app: telemetry-worker
+            ecr_repo: veric-saas-worker
+            values_file: apps/telemetry-worker/values-prod.yaml
+          - app: dbt
+            ecr_repo: veric-dbt
+            values_file: apps/dbt/values.yaml
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # we branch + push
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Find latest soaked ECR tag
+        id: latest
+        run: |
+          set -euo pipefail
+          soak_hours="${{ inputs.soak_hours || '24' }}"
+          cutoff=$(date -u -d "${soak_hours} hours ago" +%Y-%m-%dT%H:%M:%S)
+          echo "Soak cutoff: $cutoff (>= ${soak_hours}h old)"
+
+          # Newest sha-tagged image whose imagePushedAt is older than cutoff.
+          # imageTags filtered to sha-* on the JMESPath side so we ignore
+          # incidental tags (latest, branch markers, etc.).
+          latest_tag=$(aws ecr describe-images \
+            --repository-name "${{ matrix.ecr_repo }}" \
+            --region "$AWS_REGION" \
+            --output json \
+            --query "reverse(sort_by(imageDetails[?imagePushedAt<\`${cutoff}\` && imageTags != null], &imagePushedAt))[].imageTags[?starts_with(@, 'sha-')] | [0][0]")
+
+          # JMESPath returns "null" string when no match.
+          if [[ -z "$latest_tag" || "$latest_tag" == "null" ]]; then
+            echo "::warning::no soaked sha-* tag found in ${{ matrix.ecr_repo }} (>= ${soak_hours}h)"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Latest soaked tag: $latest_tag"
+          echo "tag=$latest_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Read currently-pinned tag
+        if: steps.latest.outputs.skip != 'true'
+        id: current
+        run: |
+          set -euo pipefail
+          file="${{ matrix.values_file }}"
+          # `tag: sha-XXXXXXXXXXXX` — first match wins (image: block).
+          current=$(grep -E '^\s*tag:\s*sha-[0-9a-f]{12}' "$file" | head -1 | sed -E 's/.*tag:\s*(sha-[0-9a-f]{12}).*/\1/')
+          if [[ -z "$current" ]]; then
+            echo "::error::could not find 'tag: sha-XXXXXXXXXXXX' in $file"
+            exit 1
+          fi
+          echo "Currently pinned: $current"
+          echo "tag=$current" >> "$GITHUB_OUTPUT"
+
+      - name: Decide drift
+        if: steps.latest.outputs.skip != 'true'
+        id: decide
+        run: |
+          if [[ "${{ steps.latest.outputs.tag }}" == "${{ steps.current.outputs.tag }}" ]]; then
+            echo "No drift — prod is on the latest soaked tag."
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Drift: prod=${{ steps.current.outputs.tag }} latest=${{ steps.latest.outputs.tag }}"
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip if PR branch already exists
+        if: steps.decide.outputs.drift == 'true'
+        id: branchcheck
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          new_sha="${{ steps.latest.outputs.tag }}"  # sha-XXXX form
+          short="${new_sha#sha-}"
+          branch="drift-promote/${{ matrix.app }}-${short}"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "short=$short"   >> "$GITHUB_OUTPUT"
+          # Already a PR open for this branch?
+          existing=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number' || true)
+          if [[ -n "$existing" ]]; then
+            echo "PR #$existing already open for $branch — skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump tag + open PR
+        if: steps.decide.outputs.drift == 'true' && steps.branchcheck.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          file="${{ matrix.values_file }}"
+          short="${{ steps.branchcheck.outputs.short }}"
+          branch="${{ steps.branchcheck.outputs.branch }}"
+
+          sed -i.bak -E "s/^(\s*tag:\s*)sha-[0-9a-f]{12}/\1sha-${short}/" "$file"
+          rm -f "$file.bak"
+          git diff -- "$file"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add -A
+          git commit -m "promote(prod/${{ matrix.app }}): sha-${short}" \
+                     -m "Drift-reconciler: ECR latest soaked tag (>=24h) is ahead of prod-pinned." \
+                     -m "Previously pinned: ${{ steps.current.outputs.tag }}"
+          git push -u origin "$branch"
+          gh pr create \
+            --title "promote(prod/${{ matrix.app }}): sha-${short} (drift)" \
+            --body "$(printf 'App: %s\nFrom: %s\nTo: sha-%s\n\nDetected by drift-reconciler. The new tag has soaked >= 24h on np + pdev (image-updater auto-tracks main).\n\nMerge to roll prod. Rollback = revert this commit.\n' \
+                      "${{ matrix.app }}" "${{ steps.current.outputs.tag }}" "$short")" \
+            --base main \
+            --label promote-prod \
+            --label drift-reconciler
