@@ -35,8 +35,13 @@ nodePool:
   capacityTypes:
     - on-demand
     - spot
+  # 2026-05-05 arm64 migration (Phase 2a). amd64 + arm64 in parallel
+  # so Karpenter can provision arm64 capacity once it's needed; the
+  # existing amd64-only MNGs still carry the workload until Phase 3
+  # drains them. Phase 5 collapses this back to arm64-only.
   archs:
     - amd64
+    - arm64
   instanceCategories:
     - m
     - c
