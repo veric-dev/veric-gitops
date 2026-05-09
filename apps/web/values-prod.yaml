@@ -20,6 +20,12 @@ ingress:
     - www.veric.dev
   additionalCertArns:
     - arn:aws:acm:us-west-2:514224758553:certificate/e089bfd3-8173-4e26-b241-6d223c3e5acd
+  # 2026-05-09 cost batch (O10 promotion): join the shared platform-prod
+  # ALB group. argocd + telemetry-worker carry the same group.name,
+  # collapsing 3 prod ALBs onto 1. SNI on the shared ALB handles both
+  # the *.prod cert and the apex (veric.dev/www) cert. ~$33/mo saved.
+  groupName: platform-prod
+  groupOrder: 30
 
 autoscaling:
   enabled: true

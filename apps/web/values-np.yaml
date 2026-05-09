@@ -10,6 +10,13 @@ image:
 ingress:
   hostname: app.nonprod.veric.dev
   certificateArn: arn:aws:acm:us-west-2:155055143405:certificate/8ce82722-2da5-4f24-8f4b-f64077abc6fa
+  # 2026-05-09 cost batch (O10 promotion): join the shared platform-np
+  # ALB group. argocd carries the same group.name (in tofu via the
+  # argocd module override in environments/platform-nonprod). When all
+  # 3 nonprod ingresses share the group, AWS LB Controller collapses
+  # them to one ALB. ~$33/mo saved.
+  groupName: platform-np
+  groupOrder: 30
 
 autoscaling:
   enabled: true

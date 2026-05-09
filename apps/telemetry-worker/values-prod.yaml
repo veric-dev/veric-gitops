@@ -13,6 +13,10 @@ replicaCount: 3
 ingress:
   hostname: telemetry.prod.veric.dev
   certificateArn: arn:aws:acm:us-west-2:514224758553:certificate/1229a8a8-00e9-4fc3-ab11-110f57485366
+  # 2026-05-09 cost batch (O10 promotion): join the shared platform-prod
+  # ALB group. See apps/web/values-prod.yaml for context.
+  groupName: platform-prod
+  groupOrder: 40
 
 pdb:
   enabled: true
