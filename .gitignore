@@ -5,6 +5,9 @@
 .env
 .env.local
 
+# Per-session git worktrees
+/.worktrees/
+
 # helm artifacts
 **/charts/
 **/Chart.lock

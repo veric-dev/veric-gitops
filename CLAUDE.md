@@ -1,6 +1,6 @@
 # veric-gitops — operating notes for Claude
 
-ArgoCD GitOps repo. Inherits the same single-`main` policy as `veric-infra/` and `veric-aws/`. Commit directly to `main`; no branches without explicit user ask.
+ArgoCD GitOps repo. Follows `~/.claude/SNIPPETS.md [branching-policy]` + `[worktree-runtime-isolation]` — non-trivial work on a worktree under `.worktrees/<branch>`, PR + merge queue; trivial Helm-value bumps and image-tag promotions may go direct-to-`main` per the trivial carve-out. (This replaces the old "single-main / no branches without ask" rule, retired 2026-05-10 alongside `[branching-policy-override]`.)
 
 ## What lives here vs. veric-aws
 
