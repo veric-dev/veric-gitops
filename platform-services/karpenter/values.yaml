@@ -57,5 +57,15 @@ nodePool:
   expireAfter: 720h
   consolidationPolicy: WhenEmptyOrUnderutilized
   consolidateAfter: 30s
-  cpuLimit: "200"
-  memoryLimit: "200Gi"
+  # 2026-05-11: bumped from 200/200Gi after ARC `release` pool runners
+  # (4c/16Gi req — see arc-runner-set applicationset.yaml `bigPool: true`)
+  # started failing to schedule on pdev. 7 baseline workload nodes
+  # (app-stack + BuildKit + ArgoCD + smaller ARC pools) already saturated
+  # the 200Gi cluster-wide cap, so Karpenter refused to provision more
+  # nodes for the release pool's 10 ephemeral runners — they sat Pending
+  # for 4-19h with `Failed to schedule pod, all available instance types
+  # exceed limits for nodepool: "default"`. Cap raised to fit
+  # baseline (~120Gi) + full release pool (10×16Gi = 160Gi) + headroom
+  # for other big-pool surges, with CPU widened proportionally.
+  cpuLimit: "400"
+  memoryLimit: "500Gi"
