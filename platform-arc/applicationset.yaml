@@ -61,8 +61,17 @@ spec:
             namespace: arc-runner-set-fast
             syncWave: "1"
             poolName: fast
-            maxRunners: "10"
-            bigPool: "false"
+            # 2026-05-11: 10 → 20 alongside `bigPool: "small"` (1c/4Gi
+            # requests, limits unchanged at 4c/16Gi). Halving requests
+            # lets ~2x as many fast-pool pods bin-pack onto each
+            # existing node, so we don't depend on Karpenter
+            # provisioning new EC2 instances while the On-Demand
+            # Standard (L-1216C47A: 16→200) + Spot Standard
+            # (L-34B43A08: 32→400) account quotas sit at CASE_OPENED.
+            # Revert maxRunners to "10" and `bigPool: "false"` once
+            # both quota cases close.
+            maxRunners: "20"
+            bigPool: "small"
             nameSuffix: ""
             nodeArch: ""
           - service: arc-runner-set-release
@@ -143,9 +152,24 @@ spec:
           # placeholders into raw text that helm then parses as YAML.
           # Extra keys are ignored by arc-controller (which doesn't consume
           # them) so the same template works for the controller entry.
-          # `bigPool: "true"` injects a full
-          # `gha-runner-scale-set.template.spec.containers` array with
-          # 4c/8c/16Gi/32Gi resources for the `release` pool.
+          # `bigPool` is a tri-state used to override the runner
+          # container's `resources` block per pool. The chart's
+          # values.yaml ships the default (2c/4c req/lim cpu,
+          # 8Gi/16Gi req/lim memory) suited to clippy+nextest archive
+          # builds on `fast` and the `build` pool. Overriding requires
+          # rewriting the whole `containers:` array because helm
+          # REPLACES arrays on merge (scalars/maps merge).
+          #   - "false": inherit values.yaml defaults
+          #   - "true":  inject 4c/8c/16Gi/32Gi (D8as_v5-equiv) for
+          #              `release` — veric-cli release-ship linking
+          #              duckdb-bundled needs the ~8 GiB peak.
+          #   - "small": inject 1c/4c/4Gi/16Gi — request half, limit
+          #              unchanged so workloads can still burst when
+          #              a node has headroom. Used for `fast` while
+          #              EC2 quota cases sit at CASE_OPENED so more
+          #              runner pods bin-pack onto existing nodes
+          #              without needing Karpenter to provision new
+          #              instances.
           # Replicates the values.yaml container spec verbatim except
           # for the resource bump — keep these in sync if values.yaml
           # changes the runner image, command, env, or PATH.
@@ -185,6 +209,29 @@ spec:
                         limits:
                           cpu: "8"
                           memory: "32Gi"
+              {{- else if eq .bigPool "small" }}
+              template:
+                metadata:
+                  annotations:
+                    karpenter.sh/do-not-disrupt: "true"
+                spec:
+                  serviceAccountName: arc-runner
+                  containers:
+                    - name: runner
+                      image: 487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-foundation/arc-runner:latest
+                      command: ["/home/runner/run.sh"]
+                      env:
+                        - name: PATH
+                          value: "/home/runner/externals/node20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                      resources:
+                        requests:
+                          cpu: "1"
+                          memory: "4Gi"
+                          ephemeral-storage: "20Gi"
+                        limits:
+                          cpu: "4"
+                          memory: "16Gi"
+                          ephemeral-storage: "40Gi"
               {{- end }}
       destination:
         server: https://kubernetes.default.svc
