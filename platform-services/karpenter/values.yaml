@@ -63,6 +63,31 @@ nodePool:
   terminationGracePeriod: 45m
   consolidationPolicy: WhenEmptyOrUnderutilized
   consolidateAfter: 30s
+  # K6: per-reason disruption budgets (Karpenter v1.3+, lives in 1.11.1).
+  # Each entry rate-limits a specific disruption *reason*. Order doesn't
+  # matter — Karpenter applies the most restrictive matching budget per
+  # reason. "nodes" is either an absolute count ("3") or a percent of
+  # NodePool nodes ("10%"); percentages round down.
+  #
+  # Why these specific numbers:
+  # - Underutilized = bin-packing consolidation. This is the path that
+  #   yanks ARC runner nodes out from under mid-running jobs. Cap at
+  #   10% so we never cycle more than 1 in 10 of the active fleet
+  #   simultaneously; combined with the 45m terminationGracePeriod
+  #   above and the runner preStop hook, a single job can finish even
+  #   if its node is targeted for consolidation.
+  # - Empty = nodes with zero pods. Cheap, safe, no in-flight work to
+  #   protect. Allow 100% so post-build cleanup is fast.
+  # - Drifted = NodePool/EC2NodeClass spec changed; nodes need recycling.
+  #   Common during chart bumps. 20% cap means a 5-node fleet recycles
+  #   over ~5 consolidation cycles instead of all at once.
+  disruptionBudgets:
+    - reasons: [Underutilized]
+      nodes: "10%"
+    - reasons: [Empty]
+      nodes: "100%"
+    - reasons: [Drifted]
+      nodes: "20%"
   # 2026-05-11: bumped from 200/200Gi after ARC `release` pool runners
   # (4c/16Gi req — see arc-runner-set applicationset.yaml `bigPool: true`)
   # started failing to schedule on pdev. 7 baseline workload nodes
