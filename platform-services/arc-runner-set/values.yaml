@@ -45,19 +45,37 @@ gha-runner-scale-set:
     type: ""   # empty = "kubernetes" mode disabled, plain pod mode
 
   template:
-    metadata:
-      # Karpenter v1 consolidation will evict an active runner pod as
-      # "Underutilized" mid-job, killing CI runs at random points.
-      # Observed 2026-05-02 across rust-ci on veric-engine / veric-ag /
-      # veric-cli (cancellations during apt-install / cargo build).
-      # `do-not-disrupt` opts the pod out of voluntary consolidation;
-      # it stays in place for the lifetime of its single ephemeral job.
-      annotations:
-        karpenter.sh/do-not-disrupt: "true"
     spec:
       serviceAccountName: arc-runner
+      # 2026-05-11: terminationGracePeriodSeconds = 2700 (45 min) — pairs
+      # with the NodePool-level `terminationGracePeriod: 45m` (chart
+      # appVersion 1.11.1). On a Karpenter-initiated node drain the
+      # preStop hook below blocks until the actions-runner subprocess
+      # (`Runner.Worker`) exits, which means until the active job
+      # finishes. 45m is the worst-case rust-ci wall clock; if a job is
+      # genuinely longer than that we'd rather fail it than indefinitely
+      # block a node. Replaces the previous `karpenter.sh/do-not-disrupt`
+      # pin (which blocked all voluntary consolidation including idle
+      # reclamation — the actual root cause of K-series).
+      terminationGracePeriodSeconds: 2700
       containers:
         - name: runner
+          # preStop drain hook — when Karpenter (or any other source)
+          # sends SIGTERM to evict the pod, we block container shutdown
+          # until the actions-runner worker process exits. Runner.Worker
+          # is the per-job subprocess actions/runner forks; if it's
+          # alive a job is running. Polls every 5s; the outer
+          # terminationGracePeriodSeconds bounds total wait time.
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    while pgrep -f Runner.Worker >/dev/null 2>&1; do
+                      sleep 5
+                    done
           # Foundation-baked runner image: upstream actions-runner +
           # build-essential / mold / pkg-config / libssl-dev /
           # ca-certificates / curl preinstalled. Saves the ~30-60s
