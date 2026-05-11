@@ -172,7 +172,8 @@ spec:
           #              instances.
           # Replicates the values.yaml container spec verbatim except
           # for the resource bump — keep these in sync if values.yaml
-          # changes the runner image, command, env, or PATH.
+          # changes the runner image, command, env, PATH, or
+          # lifecycle/preStop hook (K-series drain fix 2026-05-11).
           values: |
             poolNamespace: {{.namespace}}
             {{- if eq .chart "buildkit" }}
@@ -190,11 +191,9 @@ spec:
               maxRunners: {{.maxRunners}}
               {{- if eq .bigPool "true" }}
               template:
-                metadata:
-                  annotations:
-                    karpenter.sh/do-not-disrupt: "true"
                 spec:
                   serviceAccountName: arc-runner
+                  terminationGracePeriodSeconds: 2700
                   containers:
                     - name: runner
                       image: 487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-foundation/arc-runner:latest
@@ -202,6 +201,16 @@ spec:
                       env:
                         - name: PATH
                           value: "/home/runner/externals/node20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                      lifecycle:
+                        preStop:
+                          exec:
+                            command:
+                              - /bin/sh
+                              - -c
+                              - |
+                                while pgrep -f Runner.Worker >/dev/null 2>&1; do
+                                  sleep 5
+                                done
                       resources:
                         requests:
                           cpu: "4"
@@ -211,11 +220,9 @@ spec:
                           memory: "32Gi"
               {{- else if eq .bigPool "small" }}
               template:
-                metadata:
-                  annotations:
-                    karpenter.sh/do-not-disrupt: "true"
                 spec:
                   serviceAccountName: arc-runner
+                  terminationGracePeriodSeconds: 2700
                   containers:
                     - name: runner
                       image: 487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-foundation/arc-runner:latest
@@ -223,6 +230,16 @@ spec:
                       env:
                         - name: PATH
                           value: "/home/runner/externals/node20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                      lifecycle:
+                        preStop:
+                          exec:
+                            command:
+                              - /bin/sh
+                              - -c
+                              - |
+                                while pgrep -f Runner.Worker >/dev/null 2>&1; do
+                                  sleep 5
+                                done
                       resources:
                         requests:
                           cpu: "1"
