@@ -39,9 +39,21 @@ spec:
             - {{ . | quote }}
             {{- end }}
       expireAfter: {{ .Values.nodePool.expireAfter | quote }}
+      # terminationGracePeriod is the *node-level* drain budget: how long
+      # Karpenter waits for pods to evict cleanly before force-deleting
+      # the node. Must be ≥ the longest pod-level terminationGracePeriodSeconds
+      # we run (45m = ARC runner drain ceiling per arc-runner-set values).
+      # Requires Karpenter v1.1+ (GA v1.2). Without this, Karpenter falls
+      # back to the controller default (which used to be ~10s on older
+      # builds) and force-deletes ARC runners mid-job.
+      terminationGracePeriod: {{ .Values.nodePool.terminationGracePeriod | quote }}
   limits:
     cpu: {{ .Values.nodePool.cpuLimit | quote }}
     memory: {{ .Values.nodePool.memoryLimit | quote }}
   disruption:
     consolidationPolicy: {{ .Values.nodePool.consolidationPolicy | quote }}
     consolidateAfter: {{ .Values.nodePool.consolidateAfter | quote }}
+    # K6 (per-reason `disruption.budgets`) deferred — requires chart
+    # appVersion >= 1.3 (the `reasons` field). Will be added once the
+    # chart upgrade (PR-A → 1.11.1) lands; the IAM prereq lives in
+    # veric-aws PR #24. Tracked as K6 in the K-series rollout.

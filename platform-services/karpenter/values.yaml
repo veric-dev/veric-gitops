@@ -55,6 +55,12 @@ nodePool:
     - "6"
     - "7"
   expireAfter: 720h
+  # 2026-05-11: matches the longest pod-level terminationGracePeriodSeconds
+  # we run (ARC runner = 2700s = 45m — see arc-runner-set values.yaml). If
+  # we ever push that higher, raise this in lockstep; if this is shorter
+  # than a pod's grace period the kubelet drain still gets cut off at the
+  # node's deadline. Requires chart appVersion >= 1.2.
+  terminationGracePeriod: 45m
   consolidationPolicy: WhenEmptyOrUnderutilized
   consolidateAfter: 30s
   # 2026-05-11: bumped from 200/200Gi after ARC `release` pool runners
