@@ -2,9 +2,21 @@ apiVersion: v2
 name: karpenter
 description: Karpenter v1 autoscaler for Veric platform EKS clusters.
 type: application
-version: 0.1.0
-appVersion: "1.2.1"
+version: 0.2.0
+# 2026-05-11: bumped 1.2.1 → 1.11.1 as part of the K-series root-cause
+# fix for ARC runner pod consolidation. Targets:
+# - terminationGracePeriod on NodePool template spec (v1.1+, lets
+#   Karpenter wait for graceful drain instead of force-killing runners
+#   mid-job)
+# - disruption.budgets[*].reasons (v1.3+, per-reason rate limiting as
+#   a safety net against runaway consolidation)
+# Chose 1.11.1 (not latest 1.12.0) for 1-month soak time — both have
+# identical feature surface for our needs. v1.10.0 skipped due to the
+# upstream CPU-usage regression (kubernetes-sigs/karpenter#2954),
+# fixed in v1.11.0+. New IAM permission required (ec2:DescribePlacementGroups)
+# applied via veric-aws PR #24.
+appVersion: "1.11.1"
 dependencies:
   - name: karpenter
-    version: "1.2.1"
+    version: "1.11.1"
     repository: oci://public.ecr.aws/karpenter
