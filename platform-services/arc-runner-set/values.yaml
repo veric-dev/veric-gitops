@@ -96,18 +96,6 @@ gha-runner-scale-set:
           env:
             - name: PATH
               value: "/home/runner/externals/node20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-            # Pairs with /opt/actions-cache pre-bake in the runner image
-            # (veric-aws runner-image/actions-cache-populate.sh). Runs
-            # at job start, before any `uses:` step resolves — copies
-            # pre-baked marketplace actions into _work/_actions/ so the
-            # runner's existing-directory check short-circuits the
-            # codeload.github.com tarball download (the dominant cold-
-            # NAT failure mode on every Rust + Node workflow as of
-            # 2026-05-12). Hook script lives at a fixed path in the
-            # image; no chart-side script content. Empty-string fallback
-            # is fine — the runner just doesn't run a hook.
-            - name: ACTIONS_RUNNER_HOOK_JOB_STARTED
-              value: /opt/runner-hooks/job-started.sh
           resources:
             # 4 GiB was too tight for release builds of veric-cli (duckdb-bundled
             # peaks at ~8 GiB during link). Symptom: runner pod silently OOM-killed
