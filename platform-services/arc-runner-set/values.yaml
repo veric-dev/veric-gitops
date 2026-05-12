@@ -96,6 +96,46 @@ gha-runner-scale-set:
           env:
             - name: PATH
               value: "/home/runner/externals/node20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            # Codeload-proxy wiring (2026-05-12). The shared VPC NAT
+            # gateway intermittently drops TCP handshakes under burst to
+            # github.com, codeload.github.com, static.crates.io,
+            # index.crates.io, static.rust-lang.org — fails actions/
+            # checkout, rust-cache, cargo fetches with the 100s
+            # HttpClient timeout × 3 retries pattern. The in-cluster
+            # Squid CONNECT proxy fronts those hostnames; a single
+            # long-lived CONNECT tunnel through Squid absorbs that
+            # class of failure server-side. Lower-case `https_proxy`
+            # because most CLIs (curl, cargo, gh, rustup) check the
+            # lowercase form; upper-case is added for Java/.NET tools
+            # like the runner agent itself.
+            #
+            # NO_PROXY is deliberately broad to keep cluster-internal
+            # and AWS-internal traffic off the proxy:
+            #   .svc, .cluster.local        → in-cluster service DNS
+            #   localhost, 127.0.0.1, ::1   → loopback (sccache local)
+            #   169.254.169.254              → EC2 IMDS (sccache OIDC,
+            #                                  AWS SDK auth chain)
+            #   .amazonaws.com               → S3 / ECR / SM / STS
+            #   .veric.dev                   → kellnr registry
+            #   *.local                       → mdns / link-local
+            #
+            # If codeload-proxy is unavailable, only github / crates
+            # / rust-lang hosts fail — which is the same set that
+            # already fails today through the cold NAT. So this is
+            # a strict no-regression: success window strictly larger
+            # than the no-proxy baseline.
+            - name: HTTPS_PROXY
+              value: "http://codeload-proxy.codeload-proxy.svc:3128"
+            - name: https_proxy
+              value: "http://codeload-proxy.codeload-proxy.svc:3128"
+            - name: HTTP_PROXY
+              value: "http://codeload-proxy.codeload-proxy.svc:3128"
+            - name: http_proxy
+              value: "http://codeload-proxy.codeload-proxy.svc:3128"
+            - name: NO_PROXY
+              value: "localhost,127.0.0.1,::1,169.254.169.254,.svc,.svc.cluster.local,.cluster.local,.amazonaws.com,.veric.dev,.local,.eks.amazonaws.com,buildkit.buildkit.svc"
+            - name: no_proxy
+              value: "localhost,127.0.0.1,::1,169.254.169.254,.svc,.svc.cluster.local,.cluster.local,.amazonaws.com,.veric.dev,.local,.eks.amazonaws.com,buildkit.buildkit.svc"
           resources:
             # 4 GiB was too tight for release builds of veric-cli (duckdb-bundled
             # peaks at ~8 GiB during link). Symptom: runner pod silently OOM-killed
