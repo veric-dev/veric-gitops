@@ -42,11 +42,15 @@ data:
     forward_max_tries 5
     request_timeout 60 seconds
 
-    # Pipe access log to stdout for kubectl logs.
-    access_log stdio:/dev/stdout combined
-    cache_log  stdio:/dev/stderr
+    # Pipe access log to PID 1's stdout so `kubectl logs` sees them.
+    # `stdio:/dev/stdout` doesn't work in this image because the squid
+    # daemon runs as user `proxy` and `/dev/stdout` is owned by root
+    # (FATAL: Cannot open '/dev/stdout' for writing). `/proc/1/fd/1`
+    # is the container's PID 1 stdout, which kubelet pipes to the
+    # container log; it's world-writable in this image.
+    access_log stdio:/proc/1/fd/1 combined
+    cache_log  stdio:/proc/1/fd/2
 
-    # Run as squid user (uid 13 on ubuntu/squid:6.6-24.04).
     visible_hostname codeload-proxy
     dns_v4_first on
     pid_filename none
