@@ -11,7 +11,9 @@ data:
 
     # Restrict CONNECT to the cold-NAT-prone hostnames the cluster
     # actually needs. Wider open-proxy would risk arbitrary egress.
-    acl github_codeload dstdomain .github.com codeload.github.com objects.githubusercontent.com api.github.com release-assets.githubusercontent.com github-cloud.s3.amazonaws.com github-production-release-asset-2e65be.s3.amazonaws.com github-production-user-asset-6210df.s3.amazonaws.com
+    # `.github.com` covers codeload.github.com and api.github.com — Squid
+    # warns if both parent and subdomain are listed in the same ACL.
+    acl github_codeload dstdomain .github.com objects.githubusercontent.com release-assets.githubusercontent.com github-cloud.s3.amazonaws.com github-production-release-asset-2e65be.s3.amazonaws.com github-production-user-asset-6210df.s3.amazonaws.com
     acl crates_io      dstdomain static.crates.io index.crates.io crates.io
     acl rust_lang      dstdomain static.rust-lang.org forge.rust-lang.org
     acl ghcr           dstdomain ghcr.io pkg-containers.githubusercontent.com
@@ -42,15 +44,18 @@ data:
     forward_max_tries 5
     request_timeout 60 seconds
 
-    # Pipe access log to PID 1's stdout so `kubectl logs` sees them.
-    # `stdio:/dev/stdout` doesn't work in this image because the squid
-    # daemon runs as user `proxy` and `/dev/stdout` is owned by root
-    # (FATAL: Cannot open '/dev/stdout' for writing). `/proc/1/fd/1`
-    # is the container's PID 1 stdout, which kubelet pipes to the
-    # container log; it's world-writable in this image.
-    access_log stdio:/proc/1/fd/1 combined
-    cache_log  stdio:/proc/1/fd/2
+    # Log to an emptyDir volume mounted at /var/log/squid. Earlier
+    # attempts wrote to /dev/stdout and /proc/1/fd/{1,2} so `kubectl logs`
+    # would see them, but both fail: Squid's worker drops privileges to
+    # user `proxy` after fork, and neither path is writable by `proxy`
+    # (FATAL: Cannot open '/proc/1/fd/1' for writing. The parent
+    # directory must be writeable by the user 'proxy'). emptyDir is
+    # writable; logs are accessible via `kubectl exec` when needed.
+    access_log /var/log/squid/access.log combined
+    cache_log  /var/log/squid/cache.log
 
     visible_hostname codeload-proxy
-    dns_v4_first on
+    # `dns_v4_first` was removed in Squid 6 — emits "ERROR: Directive
+    # is obsolete" at startup. We don't care about preferential A/AAAA
+    # ordering for these tunnels.
     pid_filename none
