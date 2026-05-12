@@ -37,6 +37,7 @@ spec:
             syncWave: "0"
             poolName: ""
             maxRunners: ""
+            minRunners: ""
             bigPool: "false"
             nameSuffix: ""
             nodeArch: ""
@@ -75,6 +76,15 @@ spec:
             # (×4c req = 40 vCPU) and build at 10 (×2c req = 20 vCPU).
             # Total commit: 25+40+20 = 85 vCPU vs 200 quota.
             maxRunners: "25"
+            # Phase 1.5 warm floor (2026-05-12): keep 3 idle runners
+            # always registered to retire ~30-45s scale-from-zero pod
+            # boot + actions-runner registration cost on the most
+            # common job type. Cost: 3 × 1c/4Gi requests = 3 vCPU
+            # always committed (well inside fast's 25-pod budget).
+            # `fast` is the right pool for this — it's the only one
+            # where >50% of PR workflows route, so a warm floor here
+            # benefits the broadest set of jobs.
+            minRunners: "3"
             bigPool: "small"
             nameSuffix: ""
             nodeArch: ""
@@ -84,6 +94,13 @@ spec:
             syncWave: "1"
             poolName: release
             maxRunners: "10"
+            # Phase 1.5: 1 warm runner. Release jobs are infrequent
+            # but expensive: each pod is 4c/16Gi requests so a cold
+            # start triggers Karpenter to provision a fresh D8as_v5
+            # (~90s). Keeping one warm collapses the path for the
+            # release-plz auto-PR + branch-publish flow that drives
+            # most of the release-pool traffic.
+            minRunners: "1"
             bigPool: "true"
             nameSuffix: ""
             nodeArch: ""
@@ -93,6 +110,13 @@ spec:
             syncWave: "1"
             poolName: build
             maxRunners: "10"
+            # Phase 1.5: 1 warm runner. `build` carries the
+            # docker-build / image-publish flows on linux-1 pool
+            # equivalent (2c/4c req). Like `release`, the few jobs
+            # per day are each long enough that a warm slot saves
+            # measurable latency on the critical path (CI image
+            # rebuild, veric-saas Build).
+            minRunners: "1"
             bigPool: "false"
             nameSuffix: ""
             nodeArch: ""
@@ -111,6 +135,15 @@ spec:
             # No quota concerns (1c/4Gi requests × 20 = 20 vCPU,
             # comfortably inside the 200 vCPU on-demand quota).
             maxRunners: "20"
+            # Phase 1.5: no warm floor on `spot`. Spot's job mix is
+            # the long-tail of doc/notebook/playground checks — each
+            # job is short (1-3 min) and the cold-start tax is a
+            # smaller fraction of total wall time. Keeping the floor
+            # at 0 also preserves spot's cost story (the pool name
+            # is legacy but the intent — minimise standing capacity
+            # — still holds). Revisit if saturation persists after
+            # the `fast` warm floor lands.
+            minRunners: "0"
             bigPool: "small"
             nameSuffix: ""
             nodeArch: ""
@@ -120,6 +153,13 @@ spec:
             syncWave: "1"
             poolName: self-hosted-linux-x64
             maxRunners: "10"
+            # Phase 1.5: no warm floor. The `self-hosted-linux-x64`
+            # label is a legacy alias still referenced by a small
+            # number of workflows under migration; new workflows
+            # should target `fast`/`release`/`build`/`spot` directly.
+            # Setting min=0 lets this pool scale to zero between
+            # legacy job firings without standing-capacity overhead.
+            minRunners: "0"
             bigPool: "false"
             nameSuffix: ""
             nodeArch: ""
@@ -141,6 +181,7 @@ spec:
             syncWave: "1"
             poolName: ""
             maxRunners: ""
+            minRunners: ""
             bigPool: "false"
             nameSuffix: ""
             nodeArch: arm64
@@ -178,11 +219,15 @@ spec:
           #              duckdb-bundled needs the ~8 GiB peak.
           #   - "small": inject 1c/4c/4Gi/16Gi — request half, limit
           #              unchanged so workloads can still burst when
-          #              a node has headroom. Used for `fast` while
-          #              EC2 quota cases sit at CASE_OPENED so more
-          #              runner pods bin-pack onto existing nodes
-          #              without needing Karpenter to provision new
-          #              instances.
+          #              a node has headroom. Originally introduced
+          #              while the OD Standard quota (L-1216C47A) sat
+          #              at CASE_OPENED; quota CLOSED at 200 vCPU on
+          #              2026-05-11, but the small-requests profile
+          #              is retained because it still lets ~4× more
+          #              `fast` pods bin-pack onto each Karpenter
+          #              node and improves $/job on the most common
+          #              workload. K9 (#7) reverted the temporary 25
+          #              → 20 throttle that came with this profile.
           # Replicates the values.yaml container spec verbatim except
           # for the resource bump — keep these in sync if values.yaml
           # changes the runner image, command, env, PATH, or
@@ -202,6 +247,23 @@ spec:
             gha-runner-scale-set:
               runnerScaleSetName: {{.poolName}}
               maxRunners: {{.maxRunners}}
+              {{- if .minRunners }}
+              # Phase 1.5 warm floor — keeps N idle runners always
+              # registered so the first job after an idle window
+              # doesn't pay the scale-from-zero pod-boot + actions-
+              # runner registration latency (~30-45s on `fast`,
+              # ~90s on `release`/`build` due to bigger pod spec
+              # triggering Karpenter to provision a fresh EC2).
+              # Quoted-string passing matches the maxRunners pattern
+              # above — helm's `gt` comparator wants a YAML int, and
+              # Argo's `values: |` block ensures the raw text is
+              # parsed as YAML by helm. The `if` guard skips the
+              # field on chart=arc-controller and chart=buildkit
+              # (both ship minRunners="" because the gha-runner-scale-
+              # set values are irrelevant to them, and helm rejects
+              # empty-string ints).
+              minRunners: {{.minRunners}}
+              {{- end }}
               {{- if eq .bigPool "true" }}
               template:
                 spec:
