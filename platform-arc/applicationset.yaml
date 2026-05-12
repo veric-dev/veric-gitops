@@ -194,8 +194,10 @@ spec:
           # single long-lived CONNECT tunnel absorbs that class of
           # failure server-side. Design:
           # veric-aws docs/codeload-proxy-design-2026-05-12.md (Option 4).
-          # Client wiring (HTTPS_PROXY env on runners + BuildKit) lands
-          # in a follow-up commit once this Application reports Healthy.
+          # Client wiring (HTTPS_PROXY env on runners) is in this same
+          # ApplicationSet — see the bigPool="true"/"small" container
+          # overrides below and the runner env in
+          # platform-services/arc-runner-set/values.yaml.
           - service: codeload-proxy
             chart: codeload-proxy
             namespace: codeload-proxy
@@ -297,6 +299,23 @@ spec:
                       env:
                         - name: PATH
                           value: "/home/runner/externals/node20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                        # Codeload-proxy wiring (2026-05-12) — duplicated
+                        # from values.yaml because Helm REPLACES arrays
+                        # on merge, so this `containers:` override has
+                        # to repeat the env block verbatim. Keep in sync
+                        # with arc-runner-set/values.yaml's runner env.
+                        - name: HTTPS_PROXY
+                          value: "http://codeload-proxy.codeload-proxy.svc:3128"
+                        - name: https_proxy
+                          value: "http://codeload-proxy.codeload-proxy.svc:3128"
+                        - name: HTTP_PROXY
+                          value: "http://codeload-proxy.codeload-proxy.svc:3128"
+                        - name: http_proxy
+                          value: "http://codeload-proxy.codeload-proxy.svc:3128"
+                        - name: NO_PROXY
+                          value: "localhost,127.0.0.1,::1,169.254.169.254,.svc,.svc.cluster.local,.cluster.local,.amazonaws.com,.veric.dev,.local,.eks.amazonaws.com,buildkit.buildkit.svc"
+                        - name: no_proxy
+                          value: "localhost,127.0.0.1,::1,169.254.169.254,.svc,.svc.cluster.local,.cluster.local,.amazonaws.com,.veric.dev,.local,.eks.amazonaws.com,buildkit.buildkit.svc"
                       lifecycle:
                         preStop:
                           exec:
@@ -326,6 +345,23 @@ spec:
                       env:
                         - name: PATH
                           value: "/home/runner/externals/node20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                        # Codeload-proxy wiring (2026-05-12) — duplicated
+                        # from values.yaml because Helm REPLACES arrays
+                        # on merge, so this `containers:` override has
+                        # to repeat the env block verbatim. Keep in sync
+                        # with arc-runner-set/values.yaml's runner env.
+                        - name: HTTPS_PROXY
+                          value: "http://codeload-proxy.codeload-proxy.svc:3128"
+                        - name: https_proxy
+                          value: "http://codeload-proxy.codeload-proxy.svc:3128"
+                        - name: HTTP_PROXY
+                          value: "http://codeload-proxy.codeload-proxy.svc:3128"
+                        - name: http_proxy
+                          value: "http://codeload-proxy.codeload-proxy.svc:3128"
+                        - name: NO_PROXY
+                          value: "localhost,127.0.0.1,::1,169.254.169.254,.svc,.svc.cluster.local,.cluster.local,.amazonaws.com,.veric.dev,.local,.eks.amazonaws.com,buildkit.buildkit.svc"
+                        - name: no_proxy
+                          value: "localhost,127.0.0.1,::1,169.254.169.254,.svc,.svc.cluster.local,.cluster.local,.amazonaws.com,.veric.dev,.local,.eks.amazonaws.com,buildkit.buildkit.svc"
                       lifecycle:
                         preStop:
                           exec:
