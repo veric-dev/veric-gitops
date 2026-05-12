@@ -5,10 +5,13 @@
 replicaCount: 2
 
 image:
-  # Upstream ubuntu/squid is multi-arch and ships a sensible default
-  # config; we override via mounted ConfigMap below.
+  # Upstream Canonical ubuntu/squid is multi-arch and ships a sensible
+  # default config; we override via mounted ConfigMap below. Canonical
+  # only publishes _edge and _beta channels under this name (no _stable
+  # tag exists); _edge tracks the latest patch release of Squid in the
+  # given Ubuntu base and is what they recommend for unattended pulls.
   repository: ubuntu/squid
-  tag: "6.6-24.04_stable"
+  tag: "6.6-24.04_edge"
   pullPolicy: IfNotPresent
 
 service:
