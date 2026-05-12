@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: codeload-proxy-config
+data:
+  squid.conf: |
+    # Plain CONNECT proxy — no SSL bumping. The proxy sees TLS hostnames
+    # via the CONNECT verb but never the TLS payload, so no custom CA
+    # distribution is needed on clients.
+    http_port 3128
+
+    # Restrict CONNECT to the cold-NAT-prone hostnames the cluster
+    # actually needs. Wider open-proxy would risk arbitrary egress.
+    acl github_codeload dstdomain .github.com codeload.github.com objects.githubusercontent.com api.github.com release-assets.githubusercontent.com github-cloud.s3.amazonaws.com github-production-release-asset-2e65be.s3.amazonaws.com github-production-user-asset-6210df.s3.amazonaws.com
+    acl crates_io      dstdomain static.crates.io index.crates.io crates.io
+    acl rust_lang      dstdomain static.rust-lang.org forge.rust-lang.org
+    acl ghcr           dstdomain ghcr.io pkg-containers.githubusercontent.com
+    acl pypi           dstdomain pypi.org files.pythonhosted.org
+    acl npm            dstdomain registry.npmjs.org
+
+    acl SSL_ports port 443
+    acl CONNECT method CONNECT
+
+    http_access allow CONNECT SSL_ports github_codeload
+    http_access allow CONNECT SSL_ports crates_io
+    http_access allow CONNECT SSL_ports rust_lang
+    http_access allow CONNECT SSL_ports ghcr
+    http_access allow CONNECT SSL_ports pypi
+    http_access allow CONNECT SSL_ports npm
+    http_access deny  CONNECT !SSL_ports
+    http_access deny  all
+
+    # Cache TLS-tunnel metadata (DNS, peer state). We can't cache the
+    # encrypted payload but Squid will reuse upstream TCP sessions
+    # which is the actual win here.
+    cache deny all
+
+    # Connection retry: aggressive on outbound establishment so a
+    # cold-NAT SYN drop gets a fresh attempt within 5 s rather than
+    # the client retrying 100 s later.
+    connect_timeout 8 seconds
+    forward_max_tries 5
+    request_timeout 60 seconds
+
+    # Pipe access log to stdout for kubectl logs.
+    access_log stdio:/dev/stdout combined
+    cache_log  stdio:/dev/stderr
+
+    # Run as squid user (uid 13 on ubuntu/squid:6.6-24.04).
+    visible_hostname codeload-proxy
+    dns_v4_first on
+    pid_filename none

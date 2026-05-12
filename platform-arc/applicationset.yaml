@@ -185,6 +185,27 @@ spec:
             bigPool: "false"
             nameSuffix: ""
             nodeArch: arm64
+          # Codeload-proxy: in-cluster Squid CONNECT proxy fronting the
+          # cold-NAT-prone HTTPS hostnames (github.com, codeload.github.com,
+          # static.crates.io, static.rust-lang.org, ghcr.io). ARC runner
+          # pods and the BuildKit pod both leave the VPC through one
+          # shared NAT gateway; bursty egress to those hosts drops TCP
+          # handshakes and stalls workflows for 60-120 s per retry. A
+          # single long-lived CONNECT tunnel absorbs that class of
+          # failure server-side. Design:
+          # veric-aws docs/codeload-proxy-design-2026-05-12.md (Option 4).
+          # Client wiring (HTTPS_PROXY env on runners + BuildKit) lands
+          # in a follow-up commit once this Application reports Healthy.
+          - service: codeload-proxy
+            chart: codeload-proxy
+            namespace: codeload-proxy
+            syncWave: "1"
+            poolName: ""
+            maxRunners: ""
+            minRunners: ""
+            bigPool: "false"
+            nameSuffix: ""
+            nodeArch: ""
   template:
     metadata:
       name: '{{.service}}'
