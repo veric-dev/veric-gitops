@@ -276,12 +276,6 @@ spec:
                       env:
                         - name: PATH
                           value: "/home/runner/externals/node20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-                        # Mirrors values.yaml — pairs with /opt/actions-cache
-                        # pre-bake in the runner image so cold pods skip the
-                        # codeload.github.com tarball download for every
-                        # `uses:` marketplace action.
-                        - name: ACTIONS_RUNNER_HOOK_JOB_STARTED
-                          value: /opt/runner-hooks/job-started.sh
                       lifecycle:
                         preStop:
                           exec:
@@ -311,12 +305,6 @@ spec:
                       env:
                         - name: PATH
                           value: "/home/runner/externals/node20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-                        # Mirrors values.yaml — pairs with /opt/actions-cache
-                        # pre-bake in the runner image so cold pods skip the
-                        # codeload.github.com tarball download for every
-                        # `uses:` marketplace action.
-                        - name: ACTIONS_RUNNER_HOOK_JOB_STARTED
-                          value: /opt/runner-hooks/job-started.sh
                       lifecycle:
                         preStop:
                           exec:
