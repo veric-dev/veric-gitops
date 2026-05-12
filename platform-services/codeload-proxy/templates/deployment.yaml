@@ -40,6 +40,16 @@ spec:
               mountPath: /etc/squid/squid.conf
               subPath: squid.conf
               readOnly: true
+            # Squid drops privileges to user `proxy` after fork, then can't
+            # write to /proc/1/fd/{1,2} (PID 1's stdout/stderr) because the
+            # fd parent dir is owned by root. Writing to a writable
+            # emptyDir is the simplest fix; logs are accessible via
+            # `kubectl exec ... tail /var/log/squid/access.log` when
+            # needed for diagnosis. We pay no kubectl-logs visibility for
+            # the steady state — the proxy's correctness is observable
+            # via the runner workflows that depend on it.
+            - name: logs
+              mountPath: /var/log/squid
           readinessProbe:
             tcpSocket:
               port: 3128
@@ -56,3 +66,6 @@ spec:
         - name: config
           configMap:
             name: codeload-proxy-config
+        - name: logs
+          emptyDir:
+            sizeLimit: 1Gi
