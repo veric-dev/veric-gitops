@@ -61,17 +61,14 @@ spec:
             namespace: arc-runner-set-fast
             syncWave: "1"
             poolName: fast
-            # 2026-05-11: 10 → 20 alongside `bigPool: "small"` (1c/4Gi
-            # requests, limits unchanged at 4c/16Gi). Halving requests
-            # lets ~2x as many fast-pool pods bin-pack onto each
-            # existing node, so we don't depend on Karpenter
-            # provisioning new EC2 instances while the On-Demand
-            # Standard (L-1216C47A: 16→200) + Spot Standard
-            # (L-34B43A08: 32→400) account quotas sit at CASE_OPENED.
-            # Revert maxRunners to "10" and `bigPool: "false"` once
-            # both quota cases close.
-            maxRunners: "20"
-            bigPool: "small"
+            # K9 partial revert (2026-05-11): On-Demand quota
+            # L-1216C47A applied (16 → 200). Spot quota L-34B43A08
+            # still CASE_OPENED, but on-demand alone covers 10 fast
+            # runners × 4c limit = 40 vCPU comfortably. K7/K8 verified
+            # Karpenter graceful drain landed via chart 1.11.1, so we
+            # no longer need the bin-packing hack for safety.
+            maxRunners: "10"
+            bigPool: "false"
             nameSuffix: ""
             nodeArch: ""
           - service: arc-runner-set-release
