@@ -1,0 +1,22 @@
+apiVersion: v2
+name: codeload-proxy
+description: |
+  In-cluster Squid HTTPS CONNECT proxy. ARC runner pods and the BuildKit
+  pod share a single VPC NAT gateway that intermittently drops TCP
+  handshakes under burst to github.com, codeload.github.com,
+  static.crates.io, index.crates.io, static.rust-lang.org. The runner
+  agent's .NET HttpClient and BuildKit's cargo fetches both retry with
+  exponential backoff but both hit the same dropped SYN and stall for
+  60-120 s per attempt.
+
+  Squid runs in plain CONNECT mode (no SSL bumping, no custom CA) — it
+  proxies the TLS tunnel without inspecting it. The single long-lived
+  CONNECT tunnel survives the cold-NAT class of failure because Squid
+  retries the upstream handshake server-side; the client sees one
+  tunnel instead of three abandoned 100 s attempts.
+
+  Design: see veric-aws docs/codeload-proxy-design-2026-05-12.md
+  (Option 4 — Hybrid).
+type: application
+version: 0.1.0
+appVersion: "6.6"

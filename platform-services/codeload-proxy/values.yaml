@@ -1,0 +1,29 @@
+# Two replicas behind a ClusterIP — both ARC fast-pool runners and
+# the BuildKit pod hit this from inside the same cluster, so we don't
+# need an LB. Pinning to arm64 matches the rest of the platform-dev
+# fleet post-2026-05-05 single-arch migration.
+replicaCount: 2
+
+image:
+  # Upstream ubuntu/squid is multi-arch and ships a sensible default
+  # config; we override via mounted ConfigMap below.
+  repository: ubuntu/squid
+  tag: "6.6-24.04_stable"
+  pullPolicy: IfNotPresent
+
+service:
+  port: 3128
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "1"
+    memory: "512Mi"
+
+# Both ARC runner pods and BuildKit live on platform-dev arm64 nodes
+# (post-2026-05-05 single-arch migration). Pinning the proxy too keeps
+# cross-arch image pulls out of the dependency chain.
+nodeSelector:
+  kubernetes.io/arch: arm64
