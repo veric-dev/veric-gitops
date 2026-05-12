@@ -61,14 +61,21 @@ spec:
             namespace: arc-runner-set-fast
             syncWave: "1"
             poolName: fast
-            # K9 partial revert (2026-05-11): On-Demand quota
-            # L-1216C47A applied (16 → 200). Spot quota L-34B43A08
-            # still CASE_OPENED, but on-demand alone covers 10 fast
-            # runners × 4c limit = 40 vCPU comfortably. K7/K8 verified
-            # Karpenter graceful drain landed via chart 1.11.1, so we
-            # no longer need the bin-packing hack for safety.
-            maxRunners: "10"
-            bigPool: "false"
+            # 2026-05-12: re-bump 10 → 25 alongside `bigPool: "small"`
+            # (1c/4Gi requests, limits unchanged at 4c/16Gi). K9 (#7)
+            # reverted the original quota-driven bin-pack hack on
+            # 2026-05-11 after the On-Demand Standard quota
+            # (L-1216C47A) closed at 200 vCPU, since the bin-packing
+            # was no longer needed for safety. This re-bump is for a
+            # different reason: observed sustained saturation under
+            # multi-repo PR load (4 PRs × 5-10 jobs each fan in on
+            # `fast`); jobs queue 30+ min waiting for runners. At 1c
+            # request per pod, 25 pods is 25 vCPU, comfortably inside
+            # the 200 vCPU headroom even with the release pool at 10
+            # (×4c req = 40 vCPU) and build at 10 (×2c req = 20 vCPU).
+            # Total commit: 25+40+20 = 85 vCPU vs 200 quota.
+            maxRunners: "25"
+            bigPool: "small"
             nameSuffix: ""
             nodeArch: ""
           - service: arc-runner-set-release
@@ -94,8 +101,17 @@ spec:
             namespace: arc-runner-set-spot
             syncWave: "1"
             poolName: spot
-            maxRunners: "10"
-            bigPool: "false"
+            # 2026-05-12: 10 → 20. ai-fund's notebooks +
+            # notebook-widgets + playground all run on `spot` and
+            # together saturate the pool every PR, queueing 30+ min
+            # behind sibling-repo jobs. The pool name is legacy —
+            # `spot` schedules onto the same Karpenter NodePool
+            # (capacityTypes=[on-demand,spot]) as `fast`, so this
+            # is a logical scale-set bump, not actual spot capacity.
+            # No quota concerns (1c/4Gi requests × 20 = 20 vCPU,
+            # comfortably inside the 200 vCPU on-demand quota).
+            maxRunners: "20"
+            bigPool: "small"
             nameSuffix: ""
             nodeArch: ""
           - service: arc-runner-set-self-hosted-linux-x64
