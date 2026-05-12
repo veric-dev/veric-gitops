@@ -6,7 +6,7 @@ image:
   # 1. Confirm the sha is healthy on np + pdev (auto-tracked).
   # 2. Bump this `tag` (use .github/workflows/promote-prod.yml or hand-edit + PR).
   # 3. Rollback = `git revert` the bump commit.
-  tag: sha-b26139455216
+  tag: sha-3a954ee16f00
 
 replicaCount: 3
 
