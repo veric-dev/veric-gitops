@@ -15,10 +15,25 @@ data:
     # warns if both parent and subdomain are listed in the same ACL.
     acl github_codeload dstdomain .github.com objects.githubusercontent.com release-assets.githubusercontent.com github-cloud.s3.amazonaws.com github-production-release-asset-2e65be.s3.amazonaws.com github-production-user-asset-6210df.s3.amazonaws.com
     acl crates_io      dstdomain static.crates.io index.crates.io crates.io
-    acl rust_lang      dstdomain static.rust-lang.org forge.rust-lang.org
+    # `static.rust-lang.org` carries the toolchain tarballs once rustup
+    # is bootstrapped; `sh.rustup.rs` is the rustup installer shim
+    # itself (`curl https://sh.rustup.rs | sh`). Workflows that run
+    # actions-rust-lang/setup-rust-toolchain or any
+    # `curl … | sh` install path hit the shim first — without it in the
+    # ACL Squid 403s and the install step exits with `curl: (22) ...
+    # error: 403`. Caught 2026-05-12 on ai-fundamentals#126 after PR #19
+    # fixed log uploads (the failure was previously masked by missing
+    # logs).
+    acl rust_lang      dstdomain static.rust-lang.org forge.rust-lang.org sh.rustup.rs
     acl ghcr           dstdomain ghcr.io pkg-containers.githubusercontent.com
     acl pypi           dstdomain pypi.org files.pythonhosted.org
     acl npm            dstdomain registry.npmjs.org
+    # opentofu/setup-opentofu downloads the tofu binary from
+    # `get.opentofu.org` (CDN-fronted) and pulls the GPG key from
+    # `get.opentofu.org/opentofu.gpg`. Without this ACL entry, every
+    # platform-aws workflow that runs `setup-opentofu` 403s during the
+    # download step. Same triage path as sh.rustup.rs (2026-05-12).
+    acl opentofu       dstdomain get.opentofu.org releases.opentofu.org registry.opentofu.org
 
     acl SSL_ports port 443
     acl CONNECT method CONNECT
@@ -29,6 +44,7 @@ data:
     http_access allow CONNECT SSL_ports ghcr
     http_access allow CONNECT SSL_ports pypi
     http_access allow CONNECT SSL_ports npm
+    http_access allow CONNECT SSL_ports opentofu
     http_access deny  CONNECT !SSL_ports
     http_access deny  all
 
