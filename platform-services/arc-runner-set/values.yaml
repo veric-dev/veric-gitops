@@ -118,6 +118,22 @@ gha-runner-scale-set:
             #   .amazonaws.com               → S3 / ECR / SM / STS
             #   .veric.dev                   → kellnr registry
             #   *.local                       → mdns / link-local
+            #   .actions.githubusercontent.com → ARC runner broker
+            #     (pipelinesghubeus*.actions.githubusercontent.com).
+            #     The runner agent maintains a long-lived control-plane
+            #     session here for job poll + log stream + status. If
+            #     proxied, Squid must allow the host by ACL or every
+            #     runner pod 403s on registration and no jobs ever
+            #     execute. Caught live 2026-05-12: the initial PR #16
+            #     env-wiring rolled out without this exclusion, every
+            #     pool's pods went into zombie mode (Running but
+            #     unregistered), proxy access.log showed
+            #     `TCP_DENIED:HIER_NONE` 403 on every CONNECT to
+            #     pipelinesghubeus21.actions.githubusercontent.com.
+            #     Direct path is the right call: the broker stream
+            #     is long-lived persistent TCP, not the short download
+            #     burst class Squid is meant to dampen, and proxying
+            #     it makes Squid a SPOF for the entire ARC fleet.
             #
             # If codeload-proxy is unavailable, only github / crates
             # / rust-lang hosts fail — which is the same set that
@@ -133,9 +149,9 @@ gha-runner-scale-set:
             - name: http_proxy
               value: "http://codeload-proxy.codeload-proxy.svc:3128"
             - name: NO_PROXY
-              value: "localhost,127.0.0.1,::1,169.254.169.254,.svc,.svc.cluster.local,.cluster.local,.amazonaws.com,.veric.dev,.local,.eks.amazonaws.com,buildkit.buildkit.svc"
+              value: "localhost,127.0.0.1,::1,169.254.169.254,.svc,.svc.cluster.local,.cluster.local,.amazonaws.com,.veric.dev,.local,.eks.amazonaws.com,.actions.githubusercontent.com,buildkit.buildkit.svc"
             - name: no_proxy
-              value: "localhost,127.0.0.1,::1,169.254.169.254,.svc,.svc.cluster.local,.cluster.local,.amazonaws.com,.veric.dev,.local,.eks.amazonaws.com,buildkit.buildkit.svc"
+              value: "localhost,127.0.0.1,::1,169.254.169.254,.svc,.svc.cluster.local,.cluster.local,.amazonaws.com,.veric.dev,.local,.eks.amazonaws.com,.actions.githubusercontent.com,buildkit.buildkit.svc"
           resources:
             # 4 GiB was too tight for release builds of veric-cli (duckdb-bundled
             # peaks at ~8 GiB during link). Symptom: runner pod silently OOM-killed
