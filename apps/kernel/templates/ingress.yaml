@@ -1,0 +1,34 @@
+{{- if and .Values.enabled .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kernel
+  labels:
+    {{- include "kernel.labels" . | nindent 4 }}
+  annotations:
+    alb.ingress.kubernetes.io/scheme: {{ .Values.ingress.scheme }}
+    alb.ingress.kubernetes.io/target-type: ip
+    # WS upgrade flows naturally through HTTP/1.1; both 80 + 443 listeners
+    # so the playground can warm-fetch /health over HTTPS before opening
+    # the WSS connection.
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443},{"HTTP":80}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.ingress.certificateArn | quote }}
+    {{- with .Values.ingress.groupName }}
+    alb.ingress.kubernetes.io/group.name: {{ . | quote }}
+    alb.ingress.kubernetes.io/group.order: {{ default 40 $.Values.ingress.groupOrder | quote }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.ingress.hostname }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kernel
+                port:
+                  number: {{ .Values.service.port }}
+{{- end }}
