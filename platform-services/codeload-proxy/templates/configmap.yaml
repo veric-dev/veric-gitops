@@ -105,6 +105,18 @@ data:
     access_log /var/log/squid/access.log combined
     cache_log  /var/log/squid/cache.log
 
+    # Force IPv4-only outbound. The EKS cluster does not route IPv6
+    # egress — but Cloudfront-fronted hostnames like `sh.rustup.rs`
+    # resolve to AAAA records (and getaddrinfo() returns IPv6 first by
+    # default). Squid 6 removed `dns_v4_first` and uses Happy Eyeballs;
+    # without it, Squid races A+AAAA in parallel, the IPv6 connect
+    # fails immediately ("Network unreachable") on each of the 6+ AAAA
+    # addresses, and `forward_max_tries 5` exhausts before any A
+    # address is tried — the client sees `HTTP/1.1 503` on CONNECT.
+    # Binding tcp_outgoing_address to the IPv4 wildcard makes Squid
+    # attempt only IPv4 destinations.
+    # Caught 2026-05-12 on ai-fundamentals#126 rust-toolchain install.
+    tcp_outgoing_address 0.0.0.0
     visible_hostname codeload-proxy
     # `dns_v4_first` was removed in Squid 6 — emits "ERROR: Directive
     # is obsolete" at startup. We don't care about preferential A/AAAA
