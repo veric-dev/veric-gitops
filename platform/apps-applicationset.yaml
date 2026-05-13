@@ -56,6 +56,14 @@ spec:
                   namespace: dbt
                   syncWave: "12"
                   imageList: "dbt=487542879472.dkr.ecr.us-west-2.amazonaws.com/veric-dbt"
+                # ai-fundamentals Phase-3 Stage D5: hosted ai-kernel-server
+                # at kernel.veric.dev. Prod only — chart's values.yaml has
+                # enabled: false, only values-prod.yaml flips it on; pdev
+                # + nonprod render as a no-op Application.
+                - app: kernel
+                  namespace: kernel
+                  syncWave: "13"
+                  imageList: "kernel=487542879472.dkr.ecr.us-west-2.amazonaws.com/ai-kernel-server"
           - clusters:
               selector:
                 matchLabels:
@@ -95,6 +103,10 @@ spec:
         argocd-image-updater.argoproj.io/dbt.allow-tags: 'regexp:^sha-[0-9a-f]{12}$'
         argocd-image-updater.argoproj.io/dbt.helm.image-name: image.repository
         argocd-image-updater.argoproj.io/dbt.helm.image-tag: image.tag
+        argocd-image-updater.argoproj.io/kernel.update-strategy: latest
+        argocd-image-updater.argoproj.io/kernel.allow-tags: 'regexp:^sha-[0-9a-f]{12}$'
+        argocd-image-updater.argoproj.io/kernel.helm.image-name: image.repository
+        argocd-image-updater.argoproj.io/kernel.helm.image-tag: image.tag
         argocd-image-updater.argoproj.io/write-back-method: argocd
     spec:
       project: default

@@ -1,0 +1,80 @@
+# Defaults for the hosted ai-kernel-server chart.
+#
+# Scaffolded with `enabled: false` so the Application can be wired into
+# apps-applicationset.yaml without actually deploying anything in any
+# cluster. The chart only ships to prod (kernel.veric.dev); a
+# values-prod.yaml flips enabled=true.
+
+enabled: false
+
+image:
+  # Foundation ECR; cross-account pull works via the standard
+  # foundation→platform repo policy. Tag pinned by argocd-image-updater
+  # on the prod chart's values file once the build pipeline writes it.
+  repository: 487542879472.dkr.ecr.us-west-2.amazonaws.com/ai-kernel-server
+  tag: "0.0.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 7037
+  targetPort: 7037
+
+# Public ingress on the platform's wildcard cert (*.veric.dev for the
+# apex group). Hostname is per-env in values-prod.yaml.
+ingress:
+  enabled: true
+  className: alb
+  hostname: ""           # set per-env (kernel.veric.dev)
+  certificateArn: ""     # set per-env
+  scheme: internet-facing
+  groupName: ""          # set per-env to share the platform-prod ALB
+  groupOrder: 40         # after web (30); kernel paths don't overlap
+
+# Horizontal autoscaling. The kernel is small but bursty (one heavy
+# analyse() can pin CPU for a couple seconds). Keep min=1; let it scale
+# to 3 if demand grows.
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+
+# Env vars passed to the process. No secrets needed — kernel only does
+# static analysis. `RUST_LOG` controls tracing-subscriber level.
+env:
+  RUST_LOG: ai_kernel_server=info
+
+# Resource budget. ai-kernel-server is a Rust binary; the steady-state
+# heap is small (<100Mi). Burst CPU during analyse(). Tune in prod
+# values if observed otherwise.
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+
+# K8s probes hit the `/health` endpoint exposed by the axum router.
+probes:
+  liveness:
+    httpGet:
+      path: /health
+      port: 7037
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 3
+  readiness:
+    httpGet:
+      path: /health
+      port: 7037
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+
+serviceAccount:
+  name: kernel
+  roleArn: ""            # no IRSA needed; pure-compute pod with no AWS API calls
