@@ -78,6 +78,23 @@ data:
     acl SSL_ports port 443
     acl CONNECT method CONNECT
 
+    # Deny IPv6 destinations BEFORE the allow rules. The EKS cluster
+    # has no IPv6 egress; CloudFront-fronted hostnames (sh.rustup.rs,
+    # registry.npmjs.org, …) return both A and AAAA. Squid 6 uses
+    # Happy Eyeballs and races both families in parallel — the AAAA
+    # connects fail instantly with "Network unreachable" and burn
+    # through `forward_max_tries=5` before any A is tried. The client
+    # sees a 503 on CONNECT even though IPv4 routing is healthy.
+    # `tcp_outgoing_address 0.0.0.0` (below) only constrains the
+    # source binding; without this destination filter Squid still
+    # adds AAAA candidates to the try-list. `dst ::/0` matches any
+    # IPv6 destination (v4 destinations live in 0.0.0.0/0 — disjoint).
+    # Caught 2026-05-13 on engine#129 publish-internal: 503 on
+    # `CONNECT sh.rustup.rs:443` AND `CONNECT registry.npmjs.org:443`
+    # even after PR #23 (tcp_outgoing_address) shipped.
+    acl to_ipv6 dst ::/0
+    http_access deny CONNECT to_ipv6
+
     http_access allow CONNECT SSL_ports github_codeload
     http_access allow CONNECT SSL_ports crates_io
     http_access allow CONNECT SSL_ports rust_lang
@@ -100,7 +117,11 @@ data:
     # cold-NAT SYN drop gets a fresh attempt within 5 s rather than
     # the client retrying 100 s later.
     connect_timeout 8 seconds
-    forward_max_tries 5
+    # Bumped 5 → 20 (2026-05-13) as belt-and-suspenders alongside the
+    # to_ipv6 deny ACL. Even with v6 destinations filtered out, a CDN
+    # like CloudFront can return 6+ A records and a single cold-NAT
+    # SYN drop on the first 1-2 of them shouldn't exhaust the budget.
+    forward_max_tries 20
     request_timeout 60 seconds
 
     # Log to an emptyDir volume mounted at /var/log/squid. Earlier
