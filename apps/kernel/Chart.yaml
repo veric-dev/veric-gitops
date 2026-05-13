@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kernel
+description: Hosted ai-kernel-server — JSON-RPC + HTTP analyser at kernel.veric.dev. Sources at github.com/veric-dev/ai-fundamentals/crates/ai-kernel-server. See ai-fundamentals Phase-3 Stage D5.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
