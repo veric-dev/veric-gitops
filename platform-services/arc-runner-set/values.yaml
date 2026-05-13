@@ -134,6 +134,16 @@ gha-runner-scale-set:
             #     is long-lived persistent TCP, not the short download
             #     burst class Squid is meant to dampen, and proxying
             #     it makes Squid a SPOF for the entire ARC fleet.
+            #   .blob.core.windows.net → GitHub Actions log + artifact
+            #     uploads (productionresultssa{10,15,19,…}.blob.…). The
+            #     runner agent posts each step's stdout chunk + final
+            #     job results blob here; if proxied, Squid 403s on the
+            #     CONNECT (not in ACL) and the runner records the job
+            #     as completed/failure with empty steps[] because no
+            #     log blob ever uploaded. Caught 2026-05-12: PR #18
+            #     fixed the broker exclusion but missed the log-upload
+            #     destination — symptom was 100% of jobs failing in
+            #     ~60s with `BlobNotFound` on `gh api …/jobs/.../logs`.
             #
             # If codeload-proxy is unavailable, only github / crates
             # / rust-lang hosts fail — which is the same set that
@@ -149,9 +159,9 @@ gha-runner-scale-set:
             - name: http_proxy
               value: "http://codeload-proxy.codeload-proxy.svc:3128"
             - name: NO_PROXY
-              value: "localhost,127.0.0.1,::1,169.254.169.254,.svc,.svc.cluster.local,.cluster.local,.amazonaws.com,.veric.dev,.local,.eks.amazonaws.com,.actions.githubusercontent.com,buildkit.buildkit.svc"
+              value: "localhost,127.0.0.1,::1,169.254.169.254,.svc,.svc.cluster.local,.cluster.local,.amazonaws.com,.veric.dev,.local,.eks.amazonaws.com,.actions.githubusercontent.com,.blob.core.windows.net,buildkit.buildkit.svc"
             - name: no_proxy
-              value: "localhost,127.0.0.1,::1,169.254.169.254,.svc,.svc.cluster.local,.cluster.local,.amazonaws.com,.veric.dev,.local,.eks.amazonaws.com,.actions.githubusercontent.com,buildkit.buildkit.svc"
+              value: "localhost,127.0.0.1,::1,169.254.169.254,.svc,.svc.cluster.local,.cluster.local,.amazonaws.com,.veric.dev,.local,.eks.amazonaws.com,.actions.githubusercontent.com,.blob.core.windows.net,buildkit.buildkit.svc"
           resources:
             # 4 GiB was too tight for release builds of veric-cli (duckdb-bundled
             # peaks at ~8 GiB during link). Symptom: runner pod silently OOM-killed
