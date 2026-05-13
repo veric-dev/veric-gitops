@@ -88,6 +88,18 @@ nodePool:
       nodes: "100%"
     - reasons: [Drifted]
       nodes: "20%"
+  # 2026-05-12: bumped 400/500Gi → 600/800Gi after the build pool's
+  # 8Gi-request runner pods piled onto a fleet that was already running
+  # release (10 × 16Gi big), fast (25 × 4Gi small w/ some big), spot
+  # (20 × 4Gi), and ~120Gi of baseline workload. Aggregate worst-case
+  # was ~540Gi — the 500Gi cap had no headroom and Karpenter parked
+  # 2 build pods Pending for 95+ min with `no instance type has enough
+  # resources, ... cpu=2150m, ephemeral-storage=20Gi, memory=8Gi`
+  # (the error is generic — the underlying cause is the cluster-wide
+  # NodePool cap, not the pod's per-instance fit). New cap fits all
+  # five ARC pools fully scaled + baseline + ~25% headroom; CPU
+  # widened in lockstep to keep the same shape.
+  #
   # 2026-05-11: bumped from 200/200Gi after ARC `release` pool runners
   # (4c/16Gi req — see arc-runner-set applicationset.yaml `bigPool: true`)
   # started failing to schedule on pdev. 7 baseline workload nodes
@@ -98,5 +110,5 @@ nodePool:
   # exceed limits for nodepool: "default"`. Cap raised to fit
   # baseline (~120Gi) + full release pool (10×16Gi = 160Gi) + headroom
   # for other big-pool surges, with CPU widened proportionally.
-  cpuLimit: "400"
-  memoryLimit: "500Gi"
+  cpuLimit: "600"
+  memoryLimit: "800Gi"
