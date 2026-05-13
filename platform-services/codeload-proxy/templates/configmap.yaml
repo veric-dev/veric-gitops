@@ -19,7 +19,15 @@ data:
     # Plus arbitrary org-page projects under github.io. These are static
     # asset CDNs, same risk profile as github.com. Caught 2026-05-12 in
     # ai-fundamentals#126 notebooks job (wasm-pack install 403).
-    acl github_codeload dstdomain .github.com .github.io objects.githubusercontent.com release-assets.githubusercontent.com github-cloud.s3.amazonaws.com github-production-release-asset-2e65be.s3.amazonaws.com github-production-user-asset-6210df.s3.amazonaws.com
+    # `.githubusercontent.com` covers raw.githubusercontent.com (used by
+    # tofu's `data "http"` to fetch ALB controller IAM policy JSON pinned
+    # to a release tag), objects.* (LFS blobs), release-assets.*, and
+    # avatars.* — all GitHub-owned content CDNs. Caught 2026-05-13 on
+    # veric-aws#26/#27 platform-{dev,nonprod} plans:
+    #   "Get https://raw.githubusercontent.com/.../iam_policy.json: Forbidden"
+    # Listed as parent rather than per-subdomain so future GitHub-content
+    # endpoints (camo.*, etc.) work without another ACL roundtrip.
+    acl github_codeload dstdomain .github.com .github.io .githubusercontent.com github-cloud.s3.amazonaws.com github-production-release-asset-2e65be.s3.amazonaws.com github-production-user-asset-6210df.s3.amazonaws.com
     acl crates_io      dstdomain static.crates.io index.crates.io crates.io
     # `static.rust-lang.org` carries the toolchain tarballs once rustup
     # is bootstrapped; `sh.rustup.rs` is the rustup installer shim
