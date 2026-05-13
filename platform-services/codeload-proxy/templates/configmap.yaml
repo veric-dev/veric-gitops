@@ -34,6 +34,22 @@ data:
     # platform-aws workflow that runs `setup-opentofu` 403s during the
     # download step. Same triage path as sh.rustup.rs (2026-05-12).
     acl opentofu       dstdomain get.opentofu.org releases.opentofu.org registry.opentofu.org
+    # AWS API endpoints. Despite NO_PROXY=`.amazonaws.com` being set on
+    # the runner pod, `aws-actions/configure-aws-credentials@v4` injects
+    # an https-proxy-agent into the STS client unconditionally — it does
+    # NOT honor NO_PROXY for that specific client. Result: STS calls go
+    # through Squid; without this ACL Squid 403s the CONNECT, the OIDC
+    # AssumeRoleWithWebIdentity silently swallows the error, no creds
+    # are exported to env, and every downstream AWS Action step
+    # (`amazon-ecr-login`, `aws-secretsmanager-get-secrets`, …) fails
+    # with "Could not load credentials from any providers".
+    #
+    # Caught 2026-05-12 across:
+    #   - veric-engine#129 fast (cargo-registry-auth → SecretsManager)
+    #   - veric-aws build-runner-image (ECR login)
+    # The .amazonaws.com wildcard covers sts, ecr (push/pull), secrets
+    # manager, S3, etc — same set that NO_PROXY already targets.
+    acl aws_api        dstdomain .amazonaws.com
 
     acl SSL_ports port 443
     acl CONNECT method CONNECT
@@ -45,6 +61,7 @@ data:
     http_access allow CONNECT SSL_ports pypi
     http_access allow CONNECT SSL_ports npm
     http_access allow CONNECT SSL_ports opentofu
+    http_access allow CONNECT SSL_ports aws_api
     http_access deny  CONNECT !SSL_ports
     http_access deny  all
 
