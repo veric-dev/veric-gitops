@@ -13,7 +13,13 @@ data:
     # actually needs. Wider open-proxy would risk arbitrary egress.
     # `.github.com` covers codeload.github.com and api.github.com — Squid
     # warns if both parent and subdomain are listed in the same ACL.
-    acl github_codeload dstdomain .github.com objects.githubusercontent.com release-assets.githubusercontent.com github-cloud.s3.amazonaws.com github-production-release-asset-2e65be.s3.amazonaws.com github-production-user-asset-6210df.s3.amazonaws.com
+    # `.github.io` covers GitHub Pages-hosted installer scripts:
+    # - rustwasm.github.io/wasm-pack/installer/init.sh (wasm-pack curl|sh)
+    # - aws.github.io (action config blobs)
+    # Plus arbitrary org-page projects under github.io. These are static
+    # asset CDNs, same risk profile as github.com. Caught 2026-05-12 in
+    # ai-fundamentals#126 notebooks job (wasm-pack install 403).
+    acl github_codeload dstdomain .github.com .github.io objects.githubusercontent.com release-assets.githubusercontent.com github-cloud.s3.amazonaws.com github-production-release-asset-2e65be.s3.amazonaws.com github-production-user-asset-6210df.s3.amazonaws.com
     acl crates_io      dstdomain static.crates.io index.crates.io crates.io
     # `static.rust-lang.org` carries the toolchain tarballs once rustup
     # is bootstrapped; `sh.rustup.rs` is the rustup installer shim
@@ -50,6 +56,16 @@ data:
     # The .amazonaws.com wildcard covers sts, ecr (push/pull), secrets
     # manager, S3, etc — same set that NO_PROXY already targets.
     acl aws_api        dstdomain .amazonaws.com
+    # Playwright browser bundle CDNs. Microsoft fronts the Chromium /
+    # Firefox / WebKit downloads through three rotating mirrors; the
+    # client tries them in order. Without all three in the ACL,
+    # `playwright install` 403s the first two and the third is
+    # rate-limited / fails CDN edge.
+    # Caught 2026-05-12 on veric-saas#26 e2e seed job.
+    acl playwright     dstdomain cdn.playwright.dev playwright.download.prss.microsoft.com
+    # Cloudflare Worker / DNS APIs called by veric-aws tofu plans
+    # (cloudflare provider). Same NO_PROXY-bypass class as AWS SDK.
+    acl cloudflare_api dstdomain api.cloudflare.com
 
     acl SSL_ports port 443
     acl CONNECT method CONNECT
@@ -62,6 +78,8 @@ data:
     http_access allow CONNECT SSL_ports npm
     http_access allow CONNECT SSL_ports opentofu
     http_access allow CONNECT SSL_ports aws_api
+    http_access allow CONNECT SSL_ports playwright
+    http_access allow CONNECT SSL_ports cloudflare_api
     http_access deny  CONNECT !SSL_ports
     http_access deny  all
 
