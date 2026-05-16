@@ -66,6 +66,13 @@ data:
     # Cloudflare Worker / DNS APIs called by veric-aws tofu plans
     # (cloudflare provider). Same NO_PROXY-bypass class as AWS SDK.
     acl cloudflare_api dstdomain api.cloudflare.com
+    # Google Fonts CSS + font-file CDNs called by next/font/google at
+    # Next.js build time (e.g. veric-run's Inter + JetBrains Mono via
+    # apps/web/app/layout.tsx). Without these, `pnpm build` fetches
+    # 502/timeout from inside the ARC pool and falls back to system
+    # fonts, breaking visual-regression snapshots.
+    # Tracking: veric-run revert 2f697b3 (2026-05-14).
+    acl google_fonts   dstdomain fonts.googleapis.com fonts.gstatic.com
 
     acl SSL_ports port 443
     acl CONNECT method CONNECT
@@ -80,6 +87,7 @@ data:
     http_access allow CONNECT SSL_ports aws_api
     http_access allow CONNECT SSL_ports playwright
     http_access allow CONNECT SSL_ports cloudflare_api
+    http_access allow CONNECT SSL_ports google_fonts
     http_access deny  CONNECT !SSL_ports
     http_access deny  all
 
