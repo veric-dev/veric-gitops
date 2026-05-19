@@ -81,6 +81,18 @@ data:
     # fonts, breaking visual-regression snapshots.
     # Tracking: veric-run revert 2f697b3 (2026-05-14).
     acl google_fonts   dstdomain fonts.googleapis.com fonts.gstatic.com
+    # VS Code Marketplace + Open VSX publish endpoints called by
+    # `@vscode/vsce publish` and `ovsx publish` in the
+    # veric-studio extension-publish.yml workflow. The vsce client
+    # posts the .vsix bundle to marketplace.visualstudio.com (the
+    # Azure DevOps gallery), with auth via the VSCE_PAT header; ovsx
+    # posts to open-vsx.org. Without these ACL entries the publish
+    # step fails with "tunneling socket could not be established,
+    # statusCode=403" (Squid 403s the CONNECT before the TLS
+    # handshake). Caught 2026-05-19 on veric-studio extension-v0.2.1
+    # and extension-v0.3.0 tag publishes.
+    acl marketplace    dstdomain marketplace.visualstudio.com
+    acl openvsx        dstdomain open-vsx.org
 
     acl SSL_ports port 443
     acl CONNECT method CONNECT
@@ -113,6 +125,8 @@ data:
     http_access allow CONNECT SSL_ports playwright
     http_access allow CONNECT SSL_ports cloudflare_api
     http_access allow CONNECT SSL_ports google_fonts
+    http_access allow CONNECT SSL_ports marketplace
+    http_access allow CONNECT SSL_ports openvsx
     http_access deny  CONNECT !SSL_ports
     http_access deny  all
 
