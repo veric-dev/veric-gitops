@@ -15,7 +15,7 @@
 enabled: true
 
 image:
-  tag: sha-000000000000   # placeholder; first kernel-image-build.yml run replaces this
+  tag: sha-80353b0e3fc0   # 2026-05-19: first successful kernel-image-build run (veric-server#77 post-merge); bump on each promotion
 
 ingress:
   hostname: kernel.veric.dev
@@ -27,7 +27,7 @@ ingress:
   # (resource aws_acm_certificate.kernel) and published at
   # SSM `/veric/platform-prod/acm/kernel-certificate-arn`. Bump this
   # string whenever the cert is recreated.
-  certificateArn: arn:aws:acm:us-west-2:514224758553:certificate/PLACEHOLDER-replace-after-tofu-apply
+  certificateArn: arn:aws:acm:us-west-2:514224758553:certificate/8a32fd69-0de4-4239-bd82-662112b74028
   # Join the shared platform-prod ALB group so kernel.veric.dev rides
   # on the same ALB as app.prod.veric.dev / veric.dev. SNI on the
   # listener handles per-host cert selection (each ingress contributes
