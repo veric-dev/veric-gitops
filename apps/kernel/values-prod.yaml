@@ -1,0 +1,50 @@
+# platform-prod — hosted ai-kernel-server at kernel.veric.dev.
+#
+# Binary is `veric-server-rpc` in github.com/veric-dev/veric-server
+# (post-P-7 archive of ai-fundamentals + the veric-kernel→veric-server
+# rename). ECR repo name stays `ai-kernel-server` for backwards-compat
+# with the gitops chart's image ref.
+#
+# Promotion model: gitops-pinned (Option β — image-updater is disabled
+# for env=prod in platform/apps-applicationset.yaml). To promote a new
+# build:
+#   1. Confirm the sha is healthy in ECR scans + veric-server CI.
+#   2. Bump `tag` below.
+#   3. Rollback = `git revert` the bump commit.
+
+enabled: true
+
+image:
+  tag: sha-80353b0e3fc0   # 2026-05-19: first successful kernel-image-build run (veric-server#77 post-merge); bump on each promotion
+
+ingress:
+  hostname: kernel.veric.dev
+  # Dedicated ACM cert for kernel.veric.dev. The platform `*.prod.veric.dev`
+  # cert (1229a8a8…) does NOT cover the `kernel.` subdomain (different
+  # zone level); the apex cert covers only veric.dev + www.veric.dev.
+  # ACM cert created by
+  # veric-aws/infra/tofu/environments/platform-prod/main.tf
+  # (resource aws_acm_certificate.kernel) and published at
+  # SSM `/veric/platform-prod/acm/kernel-certificate-arn`. Bump this
+  # string whenever the cert is recreated.
+  certificateArn: arn:aws:acm:us-west-2:514224758553:certificate/8a32fd69-0de4-4239-bd82-662112b74028
+  # Join the shared platform-prod ALB group so kernel.veric.dev rides
+  # on the same ALB as app.prod.veric.dev / veric.dev. SNI on the
+  # listener handles per-host cert selection (each ingress contributes
+  # its certificate-arn annotation).
+  groupName: platform-prod
+  groupOrder: 40
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 65
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 1500m
+    memory: 768Mi
