@@ -15,7 +15,7 @@
 enabled: true
 
 image:
-  tag: sha-6bfa251d7a58   # 2026-05-20: W1 L0+L1+L2 LSP keystone (veric-server#79 post-merge) — channel-envelope wire format + while.lsp handler + WireDiagnostic
+  tag: sha-66fe995b64a6   # 2026-05-20: /healthz alias (veric-server#84) — F-02 fix from comprehensive-system-evidence-2026-05-20.md
 
 ingress:
   hostname: kernel.veric.dev
