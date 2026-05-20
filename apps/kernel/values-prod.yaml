@@ -15,7 +15,7 @@
 enabled: true
 
 image:
-  tag: sha-80353b0e3fc0   # 2026-05-19: first successful kernel-image-build run (veric-server#77 post-merge); bump on each promotion
+  tag: sha-6bfa251d7a58   # 2026-05-20: W1 L0+L1+L2 LSP keystone (veric-server#79 post-merge) — channel-envelope wire format + while.lsp handler + WireDiagnostic
 
 ingress:
   hostname: kernel.veric.dev
