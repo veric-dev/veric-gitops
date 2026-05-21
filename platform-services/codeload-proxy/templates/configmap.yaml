@@ -93,6 +93,19 @@ data:
     # and extension-v0.3.0 tag publishes.
     acl marketplace    dstdomain marketplace.visualstudio.com
     acl openvsx        dstdomain open-vsx.org
+    # Vercel API + CLI traffic. `vercel pull/build/deploy` (used by
+    # veric-studio's embed-deploy.yml and veric-run's ci.yml
+    # deploy-production job) hits api.vercel.com for project settings
+    # + env vars, then uploads build artefacts to vercel.com /
+    # *.vercel-storage.com / *.vercel-insights.com (CDN-fronted upload
+    # destinations). Without these ACLs the CLI prints "Retrieving
+    # project…" then silently exits 0 without writing
+    # .vercel/project.json — the subsequent `vercel build` then errors
+    # "No Project Settings found locally". Caught 2026-05-21 after the
+    # 2026-05-18 VERCEL_TOKEN rotation: token was rotated but every
+    # push still red because the CLI never reaches the API. Same triage
+    # path as marketplace / openvsx ACLs (2026-05-19).
+    acl vercel         dstdomain .vercel.com api.vercel.com vercel.app .vercel-storage.com .vercel-insights.com
 
     acl SSL_ports port 443
     acl CONNECT method CONNECT
@@ -127,6 +140,7 @@ data:
     http_access allow CONNECT SSL_ports google_fonts
     http_access allow CONNECT SSL_ports marketplace
     http_access allow CONNECT SSL_ports openvsx
+    http_access allow CONNECT SSL_ports vercel
     http_access deny  CONNECT !SSL_ports
     http_access deny  all
 
