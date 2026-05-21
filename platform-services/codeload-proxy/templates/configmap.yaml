@@ -106,6 +106,16 @@ data:
     # push still red because the CLI never reaches the API. Same triage
     # path as marketplace / openvsx ACLs (2026-05-19).
     acl vercel         dstdomain .vercel.com api.vercel.com vercel.app .vercel-storage.com .vercel-insights.com
+    # Node.js binary downloads. `actions/setup-node@v4` first checks
+    # the GitHub Actions node-versions cache (covered by github_codeload
+    # — pulls from github-cloud.s3.amazonaws.com release assets) and
+    # falls back to direct nodejs.org/dist/v<X>/node-v<X>-linux-<arch>.tar.gz
+    # when the requested major isn't in the Actions cache. Node 24 is
+    # not yet cached by actions/node-versions, so every fresh runner
+    # falls through to nodejs.org and 403s without this ACL with
+    # "tunneling socket could not be established, statusCode=403".
+    # Caught 2026-05-21 on veric-run ci.yml build-check (node-version: 24).
+    acl nodejs         dstdomain nodejs.org
 
     acl SSL_ports port 443
     acl CONNECT method CONNECT
@@ -141,6 +151,7 @@ data:
     http_access allow CONNECT SSL_ports marketplace
     http_access allow CONNECT SSL_ports openvsx
     http_access allow CONNECT SSL_ports vercel
+    http_access allow CONNECT SSL_ports nodejs
     http_access deny  CONNECT !SSL_ports
     http_access deny  all
 
