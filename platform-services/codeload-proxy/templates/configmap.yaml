@@ -116,6 +116,18 @@ data:
     # "tunneling socket could not be established, statusCode=403".
     # Caught 2026-05-21 on veric-run ci.yml build-check (node-version: 24).
     acl nodejs         dstdomain nodejs.org
+    # OSS-funnel signal capture (tarski .github/workflows/
+    # oss-funnel-signal-tracking.yml, task #154). The daily cron polls
+    # the Algolia HN search API (hn.algolia.com) and lobste.rs/search to
+    # measure engineer-led-channel mentions. Both surfaces are
+    # Cloudflare-fronted public read-only APIs. Without these ACL
+    # entries Squid 403s the CONNECT and the capture script emits
+    # `value=0` + `extra.error="fetch failed"` rows that contaminate
+    # the OSS-funnel-confidence aggregate. Caught 2026-05-21 on the
+    # tarski oss-funnel-signal-tracking.yml first wired through the
+    # codeload-proxy after PR #192 (workflow move to ARC `fast`).
+    acl hn_algolia     dstdomain hn.algolia.com
+    acl lobsters       dstdomain lobste.rs
 
     acl SSL_ports port 443
     acl CONNECT method CONNECT
@@ -152,6 +164,8 @@ data:
     http_access allow CONNECT SSL_ports openvsx
     http_access allow CONNECT SSL_ports vercel
     http_access allow CONNECT SSL_ports nodejs
+    http_access allow CONNECT SSL_ports hn_algolia
+    http_access allow CONNECT SSL_ports lobsters
     http_access deny  CONNECT !SSL_ports
     http_access deny  all
 
