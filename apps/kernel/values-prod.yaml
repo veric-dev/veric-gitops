@@ -15,7 +15,7 @@
 enabled: true
 
 image:
-  tag: sha-66fe995b64a6   # 2026-05-20: /healthz alias (veric-server#84) — F-02 fix from comprehensive-system-evidence-2026-05-20.md
+  tag: sha-b4b8d9824280   # 2026-05-20: batch atop /healthz pin (sha-66fe995b64a6, #84) — adds W1 L3+L4 inlay/hover (#80), L6 capability negotiation (#81), L8 codeLens (#82), while-lsp 0.3.1 (#83), B.2 typescript.lsp scaffold (#85), annotation.verify honesty fix (#86), veric-ts-lsp wiring (#87), B.3 multi-file project envelope (#88), E.2 solver.session stub (#89), E.4 CFG synthesis in debugger.step (#90), E.6 solver.frame_appended burst (#91)
 
 ingress:
   hostname: kernel.veric.dev
